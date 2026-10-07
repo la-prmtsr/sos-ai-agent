@@ -1,0 +1,11 @@
+# Kabupaten/kota yang angka penduduk resminya boleh diambil Agent 2 dari WebAPI BPS.
+# Satu baris per kabupaten/kota, bukan per desa.
+#
+# kata_kunci   : nama kabupaten/kota seperti yang muncul di nama lokasi laporan (mis. "Bogor")
+# domain       : kode domain BPS 4 digit. Cari dengan:  python scripts/cek_bps.py domain bogor
+# var_penduduk : nomor variabel "Jumlah Penduduk Menurut Kecamatan" di domain itu.
+#                Boleh dikosongkan: agent akan mencarinya sendiri. Isi kalau pencarian otomatis
+#                memilih tabel yang salah (cek dengan:  python scripts/cek_bps.py var 3201 penduduk)
+kata_kunci,domain,var_penduduk
+Bogor,3201,
+Cianjur,3203,

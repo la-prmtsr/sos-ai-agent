@@ -1,0 +1,15 @@
+# Daftar relawan terdaftar, dicocokkan lewat NOMOR HP yang dibagikan pelapor di bot.
+# Data ini datang dari BPBD / organisasi relawan yang memang memegangnya, bukan dari
+# data registrasi SIM.
+#
+# nomor_hp   : boleh ditulis 0812..., 62812..., atau +62812... (disamakan otomatis)
+# organisasi : tampil di dashboard dan log agent
+# lat, lon   : titik tengah wilayah tugas relawan (boleh dikosongkan)
+# radius_km  : jangkauan wilayah tugas dari titik itu (boleh dikosongkan)
+#
+# Kalau nomor pelapor ada di sini  -> "relawan terdaftar" (trust score awal 0,95, +1 poin)
+# Kalau titik laporannya juga di dalam wilayah tugas -> +1 poin "lokasi sesuai wilayah tugas"
+#
+# Contoh baris (hapus tanda # dan ganti dengan data asli):
+# 081234567890,Budi Santoso,Relawan BPBD Kab. Bogor,-6.7123,106.8451,25
+nomor_hp,nama,organisasi,lat,lon,radius_km

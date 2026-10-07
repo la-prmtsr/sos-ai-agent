@@ -1,0 +1,968 @@
+<!DOCTYPE html>
+<html lang="id" class="scroll-smooth">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SOS AI - Web3 Disaster Management</title>
+    
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    
+    <!-- Google Fonts: Plus Jakarta Sans for headings, Inter for body -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Plus+Jakarta+Sans:wght@500;600;700;800&display=swap" rel="stylesheet">
+    
+    <!-- Font Awesome -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['Inter', 'sans-serif'],
+                        display: ['Plus Jakarta Sans', 'sans-serif'],
+                    },
+                    colors: {
+                        sosBlue: {
+                            50: '#eff6ff',
+                            100: '#dbeafe',
+                            500: '#1a63c6', // Bright Blue
+                            600: '#065bb8', // Primary button
+                            900: '#0d204a', // Deep Navy
+                        },
+                        sosRed: {
+                            50: '#fef2f2',
+                            100: '#fee2e2',
+                            400: '#f87171',
+                            500: '#ef4444', 
+                            600: '#dc2626', // Alert Red
+                        },
+                        slateBg: '#f8fafc',
+                    },
+                    boxShadow: {
+                        'soft': '0 4px 20px -2px rgba(0, 0, 0, 0.05)',
+                        'float': '0 10px 30px -5px rgba(6, 91, 184, 0.15)',
+                    }
+                }
+            }
+        }
+    </script>
+
+    <style>
+        body {
+            background-color: #f8fafc;
+            color: #334155;
+            overflow-x: hidden;
+        }
+
+        h1, h2, h3, h4, .font-display {
+            color: #0f172a;
+        }
+
+        /* Clean Cards */
+        .info-card {
+            background: #ffffff;
+            border: 1px solid #e2e8f0;
+            border-radius: 1rem;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05), 0 2px 4px -1px rgba(0, 0, 0, 0.03);
+            transition: all 0.3s ease;
+        }
+
+        .info-card:hover {
+            transform: translateY(-4px);
+            box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.05), 0 10px 10px -5px rgba(0, 0, 0, 0.02);
+            border-color: #cbd5e1;
+        }
+
+        #map-canvas {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 0;
+            opacity: 0.85;
+            pointer-events: none;
+        }
+
+        /* nama pos yang muncul saat kursor mendekati sebuah titik */
+        #post-tip {
+            position: absolute;
+            z-index: 20;
+            pointer-events: none;
+            transform: translate(-50%, -160%);
+            white-space: nowrap;
+            opacity: 0;
+            transition: opacity 0.18s ease;
+        }
+        #post-tip.show { opacity: 1; }
+
+        .bg-grid-pattern {
+            background-image: linear-gradient(to right, #e2e8f0 1px, transparent 1px),
+                              linear-gradient(to bottom, #e2e8f0 1px, transparent 1px);
+            background-size: 40px 40px;
+            mask-image: linear-gradient(to bottom, rgba(0,0,0,1) 40%, rgba(0,0,0,0) 100%);
+            -webkit-mask-image: linear-gradient(to bottom, rgba(0,0,0,1) 40%, rgba(0,0,0,0) 100%);
+        }
+
+        @keyframes radar-sweep {
+            from { transform: rotate(0deg); }
+            to { transform: rotate(360deg); }
+        }
+        .radar-sweep-bg {
+            position: absolute;
+            width: 800px;
+            height: 800px;
+            border-radius: 50%;
+            background: conic-gradient(from 0deg, transparent 70%, rgba(26, 99, 198, 0.1) 100%);
+            animation: radar-sweep 10s linear infinite;
+            top: 50%;
+            left: 50%;
+            margin-top: -400px;
+            margin-left: -400px;
+            z-index: -1;
+            pointer-events: none;
+        }
+
+        /* Efek Interaktif Kustom */
+        .parallax-el {
+            transition: transform 0.1s ease-out;
+            will-change: transform;
+        }
+        
+        .tilt-card {
+            transform-style: preserve-3d;
+            will-change: transform, box-shadow;
+        }
+
+        ::-webkit-scrollbar { width: 8px; }
+        ::-webkit-scrollbar-track { background: #f1f5f9; }
+        ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 4px; }
+        ::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
+    </style>
+</head>
+<script src="logo.js"></script>
+
+<body class="antialiased selection:bg-sosRed-500 selection:text-white">
+
+    <!-- Efek Cahaya Kursor Mengikuti Mouse -->
+    <div id="cursor-glow" class="fixed pointer-events-none w-[400px] h-[400px] rounded-full bg-sosBlue-500/10 blur-[80px] z-0 transition-opacity duration-300" style="display: none; top: 0; left: 0;"></div>
+
+    <nav class="fixed w-full z-50 bg-white/90 backdrop-blur-md border-b border-gray-200 transition-all duration-300" id="navbar">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="flex justify-between items-center h-20">
+                <!-- Logo -->
+                <a href="#home" class="flex-shrink-0 flex items-center cursor-pointer">
+                    <img src="vendor/images/logo.png" onerror="this.onerror=null;this.src='https://i.postimg.cc/m2mKK4yP/Chat-GPT-Image-Sep-30-2026-12-17-32-AM.png'" alt="SOS AI Logo" class="h-14 object-contain">
+                </a>
+                
+                <!-- Desktop Menu -->
+                <div class="hidden md:flex space-x-6 lg:space-x-8 items-center">
+                    <a href="#home" data-i18n="nav_home" class="text-sm font-semibold text-slate-600 hover:text-sosBlue-600 transition-colors">Beranda</a>
+                    <a href="#problems" data-i18n="nav_problems" class="text-sm font-semibold text-slate-600 hover:text-sosBlue-600 transition-colors">Masalah</a>
+                    <a href="#workflow" data-i18n="nav_workflow" class="text-sm font-semibold text-slate-600 hover:text-sosBlue-600 transition-colors">Alur Sistem</a>
+                    <a href="#infrastructure" data-i18n="nav_infra" class="text-sm font-semibold text-slate-600 hover:text-sosBlue-600 transition-colors">Infrastruktur</a>
+                    
+                    <!-- Language Toggle ID | EN -->
+                    <div class="flex items-center bg-slate-100 rounded-lg p-1 border border-slate-200 ml-4">
+                        <button id="btn-lang-id" class="px-3 py-1.5 text-xs font-bold rounded-md bg-white shadow-sm text-sosBlue-900 transition-all" onclick="setLang('id')">ID</button>
+                        <button id="btn-lang-en" class="px-3 py-1.5 text-xs font-bold rounded-md text-slate-400 hover:text-slate-600 transition-all" onclick="setLang('en')">EN</button>
+                    </div>
+
+                    <!-- Web3 Connect Wallet Button -->
+                    <a id="connectWalletBtn" href="/login" class="bg-sosBlue-600 hover:bg-sosBlue-900 text-white font-semibold py-2.5 px-6 rounded-lg shadow-soft hover:shadow-float transition-all flex items-center gap-2">
+                        <i class="fa-solid fa-wallet" id="walletIcon"></i>
+                        <span id="walletText" data-i18n="btn_connect">Hubungkan Dompet</span>
+                    </a>
+                </div>
+
+                <!-- Mobile menu button -->
+                <div class="md:hidden flex items-center gap-4">
+                    <div class="flex items-center bg-slate-100 rounded-lg p-1 border border-slate-200">
+                        <button id="btn-lang-id-mob" class="px-2 py-1 text-xs font-bold rounded-md bg-white text-sosBlue-900" onclick="setLang('id')">ID</button>
+                        <button id="btn-lang-en-mob" class="px-2 py-1 text-xs font-bold rounded-md text-slate-400" onclick="setLang('en')">EN</button>
+                    </div>
+                    <button id="mobileMenuBtn" aria-label="Menu" aria-expanded="false" class="text-slate-600 hover:text-sosBlue-900 focus:outline-none">
+                        <i class="fa-solid fa-bars text-2xl"></i>
+                    </button>
+                </div>
+            </div>
+        </div>
+        <div id="mobileMenu" class="hidden md:hidden border-t border-gray-200 bg-white px-4 py-4 space-y-1">
+            <a href="#home" data-i18n="nav_home" class="block py-2 text-sm font-semibold text-slate-600">Beranda</a>
+            <a href="#problems" data-i18n="nav_problems" class="block py-2 text-sm font-semibold text-slate-600">Masalah</a>
+            <a href="#workflow" data-i18n="nav_workflow" class="block py-2 text-sm font-semibold text-slate-600">Alur Sistem</a>
+            <a href="#infrastructure" data-i18n="nav_infra" class="block py-2 text-sm font-semibold text-slate-600">Infrastruktur</a>
+            <a id="connectWalletBtnMob" href="/login" class="mt-3 bg-sosBlue-600 text-white font-semibold py-3 px-6 rounded-lg flex items-center justify-center gap-2">
+                <i class="fa-solid fa-wallet"></i>
+                <span id="walletTextMob" data-i18n="btn_connect">Hubungkan Dompet</span>
+            </a>
+        </div>
+    </nav>
+
+    <section id="home" class="relative min-h-screen flex items-center justify-center pt-20 overflow-hidden bg-slateBg">
+        <!-- Interactive Map Canvas & Patterns -->
+        <div class="absolute inset-0 bg-grid-pattern z-0 opacity-50"></div>
+        <div class="radar-sweep-bg hidden md:block"></div>
+        <canvas id="map-canvas"></canvas>
+        <div id="post-tip" class="bg-sosBlue-900 text-white text-xs font-semibold px-3 py-1.5 rounded-lg shadow-lg"></div>
+        
+        <div class="relative z-10 max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 text-center mt-10">
+            <h1 class="parallax-el font-display text-4xl md:text-6xl lg:text-7xl font-extrabold mb-6 leading-tight tracking-tight text-sosBlue-900" data-speed="0.035">
+                <span data-i18n="hero_title_1">Agent AI untuk</span> <br />
+                <span class="text-sosBlue-600" data-i18n="hero_title_2">Navigasi Logistik Bencana</span>
+            </h1>
+            
+            <p class="parallax-el mt-4 max-w-3xl mx-auto text-lg md:text-xl text-slate-600 mb-10 leading-relaxed" data-i18n="hero_desc" data-speed="0.02">
+                Setiap detik sangat berharga. SOS AI memproses laporan darurat, memverifikasi data spasial, mengkalkulasi kebutuhan secara presisi, dan menyusun rute armada evakuasi otomatis dalam hitungan detik.
+            </p>
+            
+            <div class="parallax-el flex flex-col sm:flex-row gap-4 justify-center items-center" data-speed="0.025">
+                <a href="#workflow" class="bg-sosRed-600 hover:bg-sosRed-500 text-white font-semibold py-3.5 px-8 rounded-lg text-lg w-full sm:w-auto transition-colors shadow-md flex items-center justify-center gap-2">
+                    <span data-i18n="hero_btn_work">Lihat Cara Kerja</span> <i class="fa-solid fa-arrow-right"></i>
+                </a>
+                <a id="botBtn" href="#workflow" class="bg-white border-2 border-slate-200 text-slate-700 hover:border-sosBlue-500 hover:text-sosBlue-600 font-semibold py-3.5 px-8 rounded-lg text-lg w-full sm:w-auto transition-colors flex items-center justify-center gap-2 shadow-sm">
+                    <i class="fa-brands fa-telegram text-sosBlue-500 text-xl"></i> <span data-i18n="hero_btn_bot">Akses Bot SOS</span>
+                </a>
+            </div>
+            
+            <!-- Trust Indicators -->
+            <div class="mt-16 pt-8 border-t border-slate-200 flex flex-wrap justify-center gap-8 items-center text-slate-500">
+                <div class="flex items-center gap-2 font-display font-semibold"><i class="fa-solid fa-satellite-dish text-sosBlue-500"></i> <span data-i18n="trust_1">Verifikasi Spasial</span></div>
+                <div class="flex items-center gap-2 font-display font-semibold"><i class="fa-solid fa-link text-sosBlue-500"></i> <span data-i18n="trust_2">Desentralisasi Web3</span></div>
+                <div class="flex items-center gap-2 font-display font-semibold"><i class="fa-solid fa-truck-fast text-sosRed-500"></i> <span data-i18n="trust_3">Rute Logistik Pintar</span></div>
+            </div>
+            <div class="mt-6 flex flex-wrap justify-center gap-x-6 gap-y-2 items-center text-xs text-slate-500">
+                <span class="flex items-center gap-2"><span class="inline-block w-2 h-2 rounded-sm bg-sosBlue-900"></span><span id="legendPosts" data-i18n="legend_posts">38 pos BPBD provinsi</span></span>
+                <span class="flex items-center gap-2"><span class="inline-block w-2 h-2 rounded-full bg-sosRed-600"></span><span data-i18n="legend_sos">Laporan masuk (ilustrasi)</span></span>
+                <span class="flex items-center gap-2"><span class="inline-block w-5 border-t-2 border-dashed border-sosBlue-500"></span><span data-i18n="legend_route">Rute dari pos terdekat</span></span>
+            </div>
+        </div>
+    </section>
+
+    <section id="problems" class="py-24 relative z-10 bg-white border-t border-slate-100">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="text-center mb-16">
+                <h2 class="font-display text-3xl md:text-4xl font-bold mb-4 text-sosBlue-900" data-i18n="prob_title">
+                    Tantangan Utama di Lokasi Bencana
+                </h2>
+                <p class="text-slate-500 max-w-2xl mx-auto text-lg" data-i18n="prob_subtitle">Hambatan terbesar dalam tanggap darurat bukanlah ketiadaan bantuan, melainkan kekacauan informasi dan koordinasi.</p>
+            </div>
+
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-8">
+                <!-- Card 1 -->
+                <div class="info-card p-8 group tilt-card">
+                    <div class="w-14 h-14 rounded-full bg-slate-100 flex items-center justify-center mb-6 text-sosBlue-600 border border-slate-200 group-hover:scale-110 transition-transform duration-300">
+                        <i class="fa-solid fa-comment-slash text-2xl"></i>
+                    </div>
+                    <h3 class="text-xl font-bold mb-3 font-display" data-i18n="prob_c1_title">Asimetri Informasi</h3>
+                    <p class="text-slate-600 text-sm leading-relaxed" data-i18n="prob_c1_desc">
+                        Laporan dari posko simpang siur dan laporan palsu sering terjadi, menyebabkan alokasi bantuan menjadi tidak efisien dan salah sasaran.
+                    </p>
+                </div>
+
+                <!-- Card 2 -->
+                <div class="info-card p-8 group tilt-card">
+                    <div class="w-14 h-14 rounded-full bg-slate-100 flex items-center justify-center mb-6 text-sosRed-500 border border-slate-200 group-hover:scale-110 transition-transform duration-300">
+                        <i class="fa-solid fa-bridge-water text-2xl"></i>
+                    </div>
+                    <h3 class="text-xl font-bold mb-3 font-display" data-i18n="prob_c2_title">Keterbatasan Akses Fisik</h3>
+                    <p class="text-slate-600 text-sm leading-relaxed" data-i18n="prob_c2_desc">
+                        Infrastruktur jalan raya atau jembatan putus sering tidak diketahui oleh tim logistik pusat sebelum armada dikirim, menghambat akses.
+                    </p>
+                </div>
+
+                <!-- Card 3 -->
+                <div class="info-card p-8 group tilt-card">
+                    <div class="w-14 h-14 rounded-full bg-slate-100 flex items-center justify-center mb-6 text-yellow-600 border border-slate-200 group-hover:scale-110 transition-transform duration-300">
+                        <i class="fa-solid fa-scale-unbalanced text-2xl"></i>
+                    </div>
+                    <h3 class="text-xl font-bold mb-3 font-display" data-i18n="prob_c3_title">Ketimpangan Alokasi</h3>
+                    <p class="text-slate-600 text-sm leading-relaxed" data-i18n="prob_c3_desc">
+                        Pengiriman bantuan sering mengirimkan suplai berlebih tanpa memperhitungkan kelompok rentan (MPASI balita, obat-obatan, lansia).
+                    </p>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <section id="workflow" class="py-24 relative bg-slate-50 border-t border-slate-200 overflow-hidden">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10">
+            <div class="text-center mb-20">
+                <span class="text-sosRed-600 font-bold tracking-wider uppercase text-sm mb-2 block" data-i18n="work_tag">Solusi Multi-Agent</span>
+                <h2 class="font-display text-3xl md:text-5xl font-extrabold mb-4 text-sosBlue-900" data-i18n="work_title">
+                    Alur Kerja Sistem Terintegrasi
+                </h2>
+                <p class="text-slate-600 max-w-3xl mx-auto text-lg" data-i18n="work_subtitle">Dari bot pelaporan di lapangan hingga 4 Agen AI spesifik yang merumuskan strategi evakuasi dan logistik.</p>
+            </div>
+
+            <!-- Tahap 1 -->
+            <div class="mb-12 relative">
+                <div class="absolute left-8 top-16 bottom-[-50px] w-0.5 bg-slate-200 hidden md:block"></div>
+                
+                <div class="flex flex-col md:flex-row gap-6 mb-4">
+                    <div class="w-16 h-16 rounded-2xl bg-sosBlue-900 text-white flex items-center justify-center font-display font-bold text-2xl flex-shrink-0 shadow-lg z-10">
+                        1
+                    </div>
+                    <div class="flex-grow pt-2">
+                        <h3 class="text-2xl font-bold font-display text-sosBlue-900 mb-2" data-i18n="w1_title">Pengumpulan & Agent 1</h3>
+                        <p class="text-slate-600 mb-6" data-i18n="w1_desc">Relawan melapor via Telegram (SOS AI Bot). Pelapor tidak perlu memuat tulisan panjang, cukup klik tombol interaktif.</p>
+                        
+                        <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                            <div class="bg-white p-5 rounded-xl border border-slate-200 shadow-sm flex items-start gap-4 tilt-card group cursor-default">
+                                <div class="bg-blue-50 text-sosBlue-600 p-3 rounded-lg group-hover:scale-110 group-hover:bg-sosBlue-100 transition-all duration-300"><i class="fa-brands fa-telegram text-xl"></i></div>
+                                <div>
+                                    <h4 class="font-bold text-sm mb-1 text-slate-800" data-i18n="w1_b1_title">Interaksi Bot Pintar</h4>
+                                    <p class="text-xs text-slate-500" data-i18n="w1_b1_desc">Verifikasi nomor, GPS, estimasi korban kritis, dan kondisi jalan secara instan.</p>
+                                </div>
+                            </div>
+                            <div class="bg-white p-5 rounded-xl border border-sosBlue-100 shadow-sm flex items-start gap-4 ring-1 ring-sosBlue-500/10 tilt-card group cursor-default">
+                                <div class="bg-blue-50 text-sosBlue-600 p-3 rounded-lg group-hover:scale-110 group-hover:bg-sosBlue-100 transition-all duration-300"><i class="fa-solid fa-microchip text-xl"></i></div>
+                                <div>
+                                    <h4 class="font-bold text-sm mb-1 text-sosBlue-900" data-i18n="w1_b2_title">Agen 1: Pengolah Laporan</h4>
+                                    <p class="text-xs text-slate-500" data-i18n="w1_b2_desc">Mengubah obrolan interaktif menjadi format terstruktur & memverifikasi identitas awal.</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Tahap 2 -->
+            <div class="mb-12 relative">
+                <div class="absolute left-8 top-16 bottom-[-50px] w-0.5 bg-slate-200 hidden md:block"></div>
+                
+                <div class="flex flex-col md:flex-row gap-6 mb-4">
+                    <div class="w-16 h-16 rounded-2xl bg-sosBlue-600 text-white flex items-center justify-center font-display font-bold text-2xl flex-shrink-0 shadow-lg z-10">
+                        2
+                    </div>
+                    <div class="flex-grow pt-2">
+                        <h3 class="text-2xl font-bold font-display text-sosBlue-900 mb-2" data-i18n="w2_title">Sistem Agen Berantai (Agents 2-4)</h3>
+                        <p class="text-slate-600 mb-6" data-i18n="w2_desc">Pemrosesan data lapangan secara simultan oleh AI untuk memastikan bantuan tepat sasaran.</p>
+                        
+                        <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                            <div class="bg-white p-6 rounded-xl border border-slate-200 shadow-sm hover:border-sosBlue-300 transition-all duration-300 tilt-card group cursor-default">
+                                <div class="text-sosBlue-600 mb-3 group-hover:scale-110 group-hover:-translate-y-1 transition-transform duration-300"><i class="fa-solid fa-location-crosshairs text-2xl"></i></div>
+                                <h4 class="font-bold text-sm mb-2 text-slate-800" data-i18n="w2_b1_title">Agen 2: Verifikasi Wilayah</h4>
+                                <p class="text-xs text-slate-500 leading-relaxed" data-i18n="w2_b1_desc">Mencocokkan jumlah pengungsi dengan data kependudukan, lalu menguji laporan dengan data gempa, cuaca, dan laporan lain di sekitarnya.</p>
+                            </div>
+                            <div class="bg-white p-6 rounded-xl border border-slate-200 shadow-sm hover:border-sosBlue-300 transition-all duration-300 tilt-card group cursor-default">
+                                <div class="text-sosRed-500 mb-3 group-hover:scale-110 group-hover:-translate-y-1 transition-transform duration-300"><i class="fa-solid fa-box-archive text-2xl"></i></div>
+                                <h4 class="font-bold text-sm mb-2 text-slate-800" data-i18n="w2_b2_title">Agen 3: Alokasi Bantuan</h4>
+                                <p class="text-xs text-slate-500 leading-relaxed" data-i18n="w2_b2_desc">Menghitung kebutuhan logistik secara adil, menyesuaikan MPASI, lansia, dan obat darurat secara spesifik.</p>
+                            </div>
+                            <div class="bg-white p-6 rounded-xl border border-slate-200 shadow-sm hover:border-sosBlue-300 transition-all duration-300 tilt-card group cursor-default">
+                                <div class="text-indigo-600 mb-3 group-hover:scale-110 group-hover:-translate-y-1 transition-transform duration-300"><i class="fa-solid fa-route text-2xl"></i></div>
+                                <h4 class="font-bold text-sm mb-2 text-slate-800" data-i18n="w2_b3_title">Agen 4: Pengatur Armada</h4>
+                                <p class="text-xs text-slate-500 leading-relaxed" data-i18n="w2_b3_desc">Memilih kendaraan sesuai akses jalan yang dilaporkan, lalu menghitung rute dari pos BPBD terdekat.</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Tahap 3 -->
+            <div class="relative">
+                <div class="flex flex-col md:flex-row gap-6 mb-4">
+                    <div class="w-16 h-16 rounded-2xl bg-sosRed-600 text-white flex items-center justify-center font-display font-bold text-2xl flex-shrink-0 shadow-lg z-10">
+                        3
+                    </div>
+                    <div class="flex-grow pt-2">
+                        <h3 class="text-2xl font-bold font-display text-sosBlue-900 mb-2" data-i18n="w3_title">Agen Pengawas & Eksekusi</h3>
+                        <p class="text-slate-600 mb-6" data-i18n="w3_desc">Ringkasan disajikan di Pusat Kendali untuk disetujui, memicu pencatatan Web3 dan aksi instan lapangan.</p>
+                        
+                        <div class="bg-sosBlue-900 text-white p-6 md:p-8 rounded-2xl shadow-xl relative overflow-hidden tilt-card cursor-default">
+                            <div class="absolute top-0 right-0 p-4 opacity-10">
+                                <i class="fa-solid fa-diagram-project text-9xl"></i>
+                            </div>
+                            
+                            <h4 class="font-bold text-lg mb-4 flex items-center gap-2 text-white"><i class="fa-solid fa-user-shield text-sosRed-400"></i> <span data-i18n="w3_dash_title">Human-in-the-Loop & Command Center</span></h4>
+                            <div class="grid grid-cols-1 sm:grid-cols-3 gap-4 relative z-10">
+                                <div class="bg-white/10 p-4 rounded-lg border border-white/20 backdrop-blur-sm hover:bg-white/20 hover:-translate-y-1 transition-all duration-300 group">
+                                    <i class="fa-solid fa-file-signature text-sosRed-400 mb-2 text-xl block group-hover:scale-110 transition-transform"></i>
+                                    <p class="text-sm font-semibold" data-i18n="w3_b1_title">Persetujuan Bertanda Tangan Dompet</p>
+                                </div>
+                                <div class="bg-white/10 p-4 rounded-lg border border-white/20 backdrop-blur-sm hover:bg-white/20 hover:-translate-y-1 transition-all duration-300 group">
+                                    <i class="fa-solid fa-bell text-blue-400 mb-2 text-xl block group-hover:scale-110 transition-transform"></i>
+                                    <p class="text-sm font-semibold" data-i18n="w3_b2_title">Notifikasi Telegram ke Pelapor</p>
+                                </div>
+                                <div class="bg-white/10 p-4 rounded-lg border border-white/20 backdrop-blur-sm hover:bg-white/20 hover:-translate-y-1 transition-all duration-300 group">
+                                    <i class="fa-solid fa-link text-blue-200 mb-2 text-xl block group-hover:scale-110 transition-transform"></i>
+                                    <p class="text-sm font-semibold" data-i18n="w3_b3_title">Jejak Audit di BNB Chain</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+        </div>
+    </section>
+
+    <section id="infrastructure" class="py-24 relative bg-white border-t border-slate-200">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="flex flex-col md:flex-row items-center gap-12">
+                <div class="w-full md:w-1/2">
+                    <h2 class="font-display text-3xl md:text-4xl font-bold mb-6 text-sosBlue-900" data-i18n="infra_title">
+                        Infrastruktur & Server Multi-Agent
+                    </h2>
+                    <p class="text-slate-600 text-lg mb-6 leading-relaxed" data-i18n="infra_desc_1">
+                        Untuk menjalankan sistem berantai yang membutuhkan pemrosesan cepat, pemanggilan model AI, serta verifikasi peta spasial secara otomatis, infrastruktur yang stabil adalah hal yang sangat vital.
+                    </p>
+                    <p class="text-slate-600 text-lg mb-8 leading-relaxed" data-i18n="infra_desc_2">
+                        Isi laporan disimpan di server, sedangkan sidik jari (hash) setiap laporan dan rencana pengiriman dicatat di BNB Smart Chain. Alur dari Telegram hingga persetujuan command center berjalan dalam hitungan detik, dan siapa pun bisa memeriksanya di explorer.
+                    </p>
+                    
+                    <div class="flex flex-wrap gap-3">
+                        <span class="px-4 py-2 bg-slate-100 border border-slate-200 rounded-full text-sm font-semibold text-sosBlue-900 hover:-translate-y-1 hover:shadow-md hover:border-sosBlue-300 transition-all duration-300 cursor-default"><i class="fa-solid fa-server mr-2 text-sosBlue-500"></i> FastAPI + LangGraph</span>
+                        <span class="px-4 py-2 bg-slate-100 border border-slate-200 rounded-full text-sm font-semibold text-sosBlue-900 hover:-translate-y-1 hover:shadow-md hover:border-sosBlue-300 transition-all duration-300 cursor-default"><i class="fa-solid fa-earth-americas mr-2 text-sosBlue-500"></i> OpenStreetMap + OSRM</span>
+                        <span class="px-4 py-2 bg-slate-100 border border-slate-200 rounded-full text-sm font-semibold text-sosBlue-900 hover:-translate-y-1 hover:shadow-md hover:border-sosBlue-300 transition-all duration-300 cursor-default"><i class="fa-solid fa-cubes mr-2 text-sosBlue-500"></i> BNB Smart Chain</span>
+                    </div>
+                </div>
+                <div class="w-full md:w-1/2 relative">
+                    <div class="absolute inset-0 bg-sosBlue-100 rounded-full blur-3xl opacity-50"></div>
+                    <div class="relative bg-white border border-slate-200 p-6 rounded-2xl shadow-xl tilt-card cursor-default">
+                        <div class="flex justify-between items-center border-b border-slate-100 pb-4 mb-4">
+                            <div class="flex items-center gap-2">
+                                <div id="sysDot" class="w-3 h-3 bg-slate-300 rounded-full"></div>
+                                <span id="sysStatus" class="font-semibold text-sm text-slate-700" data-i18n="sys_checking">Memeriksa sistem...</span>
+                            </div>
+                            <span id="sysVersion" class="text-xs font-mono text-slate-400"></span>
+                        </div>
+                        <dl class="space-y-3 text-sm">
+                            <div class="flex justify-between gap-4"><dt class="text-slate-500" data-i18n="sys_chain">Jaringan</dt><dd id="sysChain" class="font-semibold text-slate-800 text-right">-</dd></div>
+                            <div class="flex justify-between gap-4"><dt class="text-slate-500" data-i18n="sys_contract">Smart contract</dt><dd class="text-right"><a id="sysContract" target="_blank" rel="noopener" class="font-mono text-xs text-sosBlue-600 hover:text-sosBlue-900">-</a></dd></div>
+                            <div class="flex justify-between gap-4"><dt class="text-slate-500" data-i18n="sys_bot">Bot Telegram</dt><dd id="sysBot" class="font-semibold text-slate-800 text-right">-</dd></div>
+                            <div class="flex justify-between gap-4"><dt class="text-slate-500" data-i18n="sys_posts">Pos asal bantuan</dt><dd id="sysPosts" class="font-semibold text-slate-800 text-right">-</dd></div>
+                        </dl>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <footer class="bg-white border-t border-slate-200 pt-12 pb-8">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="flex flex-col md:flex-row justify-between items-center gap-6 mb-8">
+                <div class="flex items-center">
+                    <img src="vendor/images/logo.png" onerror="this.onerror=null;this.src='https://i.postimg.cc/m2mKK4yP/Chat-GPT-Image-Sep-30-2026-12-17-32-AM.png'" alt="SOS AI Logo" class="h-12 object-contain">
+                </div>
+                <div class="flex flex-wrap justify-center gap-x-6 gap-y-2 text-sm font-semibold">
+                    <a id="footContract" href="https://testnet.bscscan.com/address/0xF963cb5D3222044102DaA05521d90f60CB58fd02" target="_blank" rel="noopener" class="text-slate-500 hover:text-sosBlue-600 transition-colors"><i class="fa-solid fa-cubes mr-1"></i> <span data-i18n="footer_contract">Smart contract di BscScan</span></a>
+                    <a href="/app" id="footApp" class="text-slate-500 hover:text-sosBlue-600 transition-colors"><i class="fa-solid fa-display mr-1"></i> <span data-i18n="footer_app">Command Center</span></a>
+                </div>
+            </div>
+            <div class="text-center md:text-left text-slate-500 text-sm flex flex-col md:flex-row justify-between border-t border-slate-100 pt-8">
+                <p data-i18n="footer_copy">&copy; 2026 Project SOS AI. Hak Cipta Dilindungi. <br class="md:hidden">Sistem Orchestration Bencana Berbasis Web3.</p>
+                <p class="mt-4 md:mt-0" data-i18n="footer_note">Prototipe hackathon di testnet. Bukan untuk penanganan darurat sungguhan.</p>
+            </div>
+        </div>
+    </footer>
+
+    <script>
+        // --- 1. Language Toggle Logic (i18n) ---
+        const i18n = {
+            id: {
+                nav_home: "Beranda",
+                nav_problems: "Masalah",
+                nav_workflow: "Alur Sistem",
+                nav_infra: "Infrastruktur",
+                btn_connect: "Hubungkan Dompet",
+                hero_title_1: "Agent AI untuk",
+                hero_title_2: "Navigasi Logistik Bencana",
+                hero_desc: "Setiap detik sangat berharga. SOS AI memproses laporan darurat, memverifikasi data spasial, mengkalkulasi kebutuhan secara presisi, dan menyusun rute armada evakuasi otomatis dalam hitungan detik.",
+                hero_btn_work: "Lihat Cara Kerja",
+                hero_btn_bot: "Akses Bot SOS",
+                trust_1: "Verifikasi Spasial",
+                trust_2: "Desentralisasi Web3",
+                trust_3: "Rute Logistik Pintar",
+                prob_title: "Tantangan Utama di Lokasi Bencana",
+                prob_subtitle: "Hambatan terbesar dalam tanggap darurat bukanlah ketiadaan bantuan, melainkan kekacauan informasi dan koordinasi.",
+                prob_c1_title: "Asimetri Informasi",
+                prob_c1_desc: "Laporan dari posko simpang siur dan laporan palsu sering terjadi, menyebabkan alokasi bantuan menjadi tidak efisien dan salah sasaran.",
+                prob_c2_title: "Keterbatasan Akses Fisik",
+                prob_c2_desc: "Infrastruktur jalan raya atau jembatan putus sering tidak diketahui oleh tim logistik pusat sebelum armada dikirim, menghambat akses.",
+                prob_c3_title: "Ketimpangan Alokasi",
+                prob_c3_desc: "Pengiriman bantuan sering mengirimkan suplai berlebih tanpa memperhitungkan kelompok rentan (MPASI balita, obat-obatan, lansia).",
+                work_tag: "Solusi Multi-Agent",
+                work_title: "Alur Kerja Sistem Terintegrasi",
+                work_subtitle: "Dari bot pelaporan di lapangan hingga 4 Agen AI spesifik yang merumuskan strategi evakuasi dan logistik.",
+                w1_title: "Pengumpulan & Agent 1",
+                w1_desc: "Relawan melapor via Telegram (SOS AI Bot). Pelapor tidak perlu memuat tulisan panjang, cukup klik tombol interaktif.",
+                w1_b1_title: "Interaksi Bot Pintar",
+                w1_b1_desc: "Verifikasi nomor, GPS, estimasi korban kritis, dan kondisi jalan secara instan.",
+                w1_b2_title: "Agen 1: Pengolah Laporan",
+                w1_b2_desc: "Mengubah obrolan interaktif menjadi format terstruktur & memverifikasi identitas awal.",
+                w2_title: "Sistem Agen Berantai (Agents 2-4)",
+                w2_desc: "Pemrosesan data lapangan secara simultan oleh AI untuk memastikan bantuan tepat sasaran.",
+                w2_b1_title: "Agen 2: Verifikasi Wilayah",
+                w2_b1_desc: "Mencocokkan jumlah pengungsi dengan data kependudukan, lalu menguji laporan dengan data gempa, cuaca, dan laporan lain di sekitarnya.",
+                w2_b2_title: "Agen 3: Alokasi Bantuan",
+                w2_b2_desc: "Menghitung kebutuhan logistik secara adil, menyesuaikan MPASI, lansia, dan obat darurat secara spesifik.",
+                w2_b3_title: "Agen 4: Pengatur Armada",
+                w2_b3_desc: "Memilih kendaraan sesuai akses jalan yang dilaporkan, lalu menghitung rute dari pos BPBD terdekat.",
+                w3_title: "Agen Pengawas & Eksekusi",
+                w3_desc: "Ringkasan disajikan di Pusat Kendali untuk disetujui, memicu pencatatan Web3 dan aksi instan lapangan.",
+                w3_dash_title: "Human-in-the-Loop & Command Center",
+                w3_b1_title: "Persetujuan Bertanda Tangan Dompet",
+                w3_b2_title: "Notifikasi Telegram ke Pelapor",
+                w3_b3_title: "Jejak Audit di BNB Chain",
+                infra_title: "Infrastruktur & Server Multi-Agent",
+                infra_desc_1: "Untuk menjalankan sistem berantai yang membutuhkan pemrosesan cepat, pemanggilan model AI, serta verifikasi peta spasial secara otomatis, infrastruktur yang stabil adalah hal yang sangat vital.",
+                infra_desc_2: "Isi laporan disimpan di server, sedangkan sidik jari (hash) setiap laporan dan rencana pengiriman dicatat di BNB Smart Chain. Alur dari Telegram hingga persetujuan command center berjalan dalam hitungan detik, dan siapa pun bisa memeriksanya di explorer.",
+                infra_status: "Status Server: Online",
+                footer_copy: "&copy; 2026 Project SOS AI. Hak Cipta Dilindungi. <br class=\"md:hidden\">Sistem Orchestration Bencana Berbasis Web3.",
+                footer_contract: "Smart contract di BscScan",
+                footer_app: "Command Center",
+                footer_note: "Prototipe hackathon di testnet. Bukan untuk penanganan darurat sungguhan.",
+                btn_open: "Buka Command Center",
+                sys_checking: "Memeriksa sistem...",
+                sys_online: "Status Sistem: Online",
+                sys_offline: "Backend belum terhubung",
+                sys_chain: "Jaringan",
+                sys_contract: "Smart contract",
+                sys_bot: "Bot Telegram",
+                sys_posts: "Pos asal bantuan",
+                sys_on: "Aktif",
+                sys_off: "Mati",
+                sys_nochain: "Tanpa chain",
+                sys_posts_n: "pos BPBD",
+                legend_posts: "pos BPBD provinsi",
+                legend_sos: "Laporan masuk (ilustrasi)",
+                legend_route: "Rute dari pos terdekat"
+            },
+            en: {
+                nav_home: "Home",
+                nav_problems: "Problems",
+                nav_workflow: "Workflow",
+                nav_infra: "Infrastructure",
+                btn_connect: "Connect Wallet",
+                hero_title_1: "AI Agents for",
+                hero_title_2: "Disaster Logistics Navigation",
+                hero_desc: "Every second counts. SOS AI processes emergency reports, verifies spatial data, calculates precise needs, and automatically routes evacuation fleets in seconds.",
+                hero_btn_work: "See How It Works",
+                hero_btn_bot: "Access SOS Bot",
+                trust_1: "Spatial Verification",
+                trust_2: "Web3 Decentralization",
+                trust_3: "Smart Logistics Routing",
+                prob_title: "Key Challenges in Disaster Zones",
+                prob_subtitle: "The biggest hurdle in emergency response isn't a lack of aid, but information chaos and poor coordination.",
+                prob_c1_title: "Information Asymmetry",
+                prob_c1_desc: "Conflicting and fake reports from posts often occur, leading to inefficient and misdirected aid allocation.",
+                prob_c2_title: "Physical Access Limitations",
+                prob_c2_desc: "Broken infrastructure or bridges are often unknown to the central logistics team before fleets are dispatched.",
+                prob_c3_title: "Allocation Inequality",
+                prob_c3_desc: "Deliveries often oversupply without considering vulnerable groups (baby food, elderly meds, etc.).",
+                work_tag: "Multi-Agent Solution",
+                work_title: "Integrated System Workflow",
+                work_subtitle: "From field reporting bots to 4 specific AI Agents formulating evacuation and logistics strategies.",
+                w1_title: "Data Collection & Agent 1",
+                w1_desc: "Volunteers report via Telegram (SOS AI Bot). No long typing required, just smart interactive buttons.",
+                w1_b1_title: "Smart Bot Interaction",
+                w1_b1_desc: "Instant verification of numbers, GPS, critical victim estimates, and road conditions.",
+                w1_b2_title: "Agent 1: Report Processor",
+                w1_b2_desc: "Converts interactive chat into structured formats & performs initial identity verification.",
+                w2_title: "Chained Agent System (Agents 2-4)",
+                w2_desc: "Simultaneous field data processing by AI to ensure targeted aid delivery.",
+                w2_b1_title: "Agent 2: Area Verification",
+                w2_b1_desc: "Matches refugee counts with population data, then tests the report against seismic data, weather, and other reports nearby.",
+                w2_b2_title: "Agent 3: Aid Allocation",
+                w2_b2_desc: "Calculates fair logistics needs, specifically adjusting for baby food, the elderly, and meds.",
+                w2_b3_title: "Agent 4: Fleet Manager",
+                w2_b3_desc: "Picks vehicles for the reported road access, then calculates the route from the nearest BPBD post.",
+                w3_title: "Supervisory Agent & Execution",
+                w3_desc: "Summaries are presented at the Command Center for approval, triggering Web3 logging and instant action.",
+                w3_dash_title: "Human-in-the-Loop & Command Center",
+                w3_b1_title: "Wallet-Signed Approval",
+                w3_b2_title: "Telegram Notification to Reporter",
+                w3_b3_title: "Audit Trail on BNB Chain",
+                infra_title: "Infrastructure & Multi-Agent Servers",
+                infra_desc_1: "To run a chained system requiring fast processing, AI model invocation, and automatic spatial map verification, stable infrastructure is absolutely vital.",
+                infra_desc_2: "Report contents stay on the server, while the fingerprint (hash) of every report and dispatch plan is recorded on BNB Smart Chain. The flow from Telegram to command center approval takes seconds, and anyone can check it on the explorer.",
+                infra_status: "Server Status: Online",
+                footer_copy: "&copy; 2026 Project SOS AI. All Rights Reserved. <br class=\"md:hidden\">Web3-Based Disaster Orchestration System.",
+                footer_contract: "Smart contract on BscScan",
+                footer_app: "Command Center",
+                footer_note: "Hackathon prototype on testnet. Not for operational emergency use.",
+                btn_open: "Open Command Center",
+                sys_checking: "Checking the system...",
+                sys_online: "System Status: Online",
+                sys_offline: "Backend not connected",
+                sys_chain: "Network",
+                sys_contract: "Smart contract",
+                sys_bot: "Telegram bot",
+                sys_posts: "Dispatch posts",
+                sys_on: "Active",
+                sys_off: "Off",
+                sys_nochain: "No chain",
+                sys_posts_n: "BPBD posts",
+                legend_posts: "provincial BPBD posts",
+                legend_sos: "Incoming report (illustration)",
+                legend_route: "Route from the nearest post"
+            }
+        };
+
+        let currentLang = 'id';
+
+        function setLang(lang) {
+            currentLang = lang;
+            
+            // Desktop buttons
+            const btnId = document.getElementById('btn-lang-id');
+            const btnEn = document.getElementById('btn-lang-en');
+            // Mobile buttons
+            const btnIdMob = document.getElementById('btn-lang-id-mob');
+            const btnEnMob = document.getElementById('btn-lang-en-mob');
+            
+            const activeClass = "px-3 py-1.5 text-xs font-bold rounded-md bg-white shadow-sm text-sosBlue-900 transition-all";
+            const inactiveClass = "px-3 py-1.5 text-xs font-bold rounded-md text-slate-400 hover:text-slate-600 transition-all";
+            
+            const activeClassMob = "px-2 py-1 text-xs font-bold rounded-md bg-white text-sosBlue-900";
+            const inactiveClassMob = "px-2 py-1 text-xs font-bold rounded-md text-slate-400";
+
+            if (lang === 'id') {
+                btnId.className = activeClass;
+                btnEn.className = inactiveClass;
+                btnIdMob.className = activeClassMob;
+                btnEnMob.className = inactiveClassMob;
+            } else {
+                btnEn.className = activeClass;
+                btnId.className = inactiveClass;
+                btnEnMob.className = activeClassMob;
+                btnIdMob.className = inactiveClassMob;
+            }
+
+            document.querySelectorAll('[data-i18n]').forEach(el => {
+                const key = el.getAttribute('data-i18n');
+                if (i18n[lang][key]) {
+                    el.innerHTML = i18n[lang][key];
+                }
+            });
+
+            renderSystem();
+            renderLegend();
+        }
+
+        // --- 2. Dompet, bot, dan status sistem (semuanya data asli) ---
+        // Tombol "Hubungkan Dompet" membuka halaman /login: di sana MetaMask diminta menandatangani
+        // pesan masuk dan kartu operator terisi dari smart contract. Tidak ada alamat tiruan di sini.
+        //
+        // Isi username bot Telegram kalian (tanpa @) supaya tombol "Akses Bot SOS" membuka bot-nya.
+        // Kalau dikosongkan, tombol itu membawa ke penjelasan alur pelaporan.
+        const TELEGRAM_BOT = "sos_ai_26Bot";
+
+        const SESSION_KEY = "sos.session";
+        function readSession() {
+            try {
+                const saved = JSON.parse(localStorage.getItem(SESSION_KEY) || "null");
+                return saved && saved.exp > Date.now() ? saved : null;
+            } catch (_) { return null; }   // penyimpanan browser tidak tersedia
+        }
+        // Sudah masuk dengan dompet: tombolnya langsung membuka command center
+        if ((readSession() || {}).address) {
+            for (const [btn, label] of [['connectWalletBtn', 'walletText'], ['connectWalletBtnMob', 'walletTextMob']]) {
+                document.getElementById(btn).href = '/app';
+                const text = document.getElementById(label);
+                text.setAttribute('data-i18n', 'btn_open');
+                text.innerText = i18n[currentLang].btn_open;
+            }
+            document.getElementById('walletIcon').className = 'fa-solid fa-display';
+        }
+
+        if (TELEGRAM_BOT) {
+            const bot = document.getElementById('botBtn');
+            bot.href = 'https://t.me/' + TELEGRAM_BOT.replace(/^@/, '');
+            bot.target = '_blank'; bot.rel = 'noopener';
+        }
+
+        // Menu di layar HP
+        const mobileMenuBtn = document.getElementById('mobileMenuBtn');
+        const mobileMenu = document.getElementById('mobileMenu');
+        mobileMenuBtn.addEventListener('click', () => {
+            const open = mobileMenu.classList.toggle('hidden') === false;
+            mobileMenuBtn.setAttribute('aria-expanded', String(open));
+        });
+        mobileMenu.addEventListener('click', (e) => { if (e.target.closest('a')) mobileMenu.classList.add('hidden'); });
+
+        // Kartu "Status Sistem" dibaca dari backend yang sedang berjalan (/api/config)
+        let systemConfig;   // undefined = masih memeriksa, null = backend tidak terhubung
+        function renderSystem() {
+            const t = i18n[currentLang];
+            const set = (id, text) => { document.getElementById(id).innerText = text; };
+            if (systemConfig === undefined) return;
+            const dot = document.getElementById('sysDot'), status = document.getElementById('sysStatus');
+            status.removeAttribute('data-i18n');
+            if (!systemConfig) {
+                dot.className = 'w-3 h-3 bg-slate-300 rounded-full';
+                status.innerText = t.sys_offline;
+                return;
+            }
+            const cfg = systemConfig;
+            dot.className = 'w-3 h-3 bg-emerald-500 rounded-full animate-pulse';
+            status.innerText = t.sys_online;
+            set('sysVersion', 'v' + cfg.version);
+            set('sysChain', cfg.chainEnabled ? cfg.chainName : t.sys_nochain);
+            set('sysBot', cfg.telegramEnabled ? t.sys_on : t.sys_off);
+            set('sysPosts', (cfg.staging || []).length + ' ' + t.sys_posts_n);
+            const contract = document.getElementById('sysContract');
+            if (cfg.chainEnabled && cfg.contractAddress) {
+                contract.innerText = cfg.contractAddress.slice(0, 8) + '...' + cfg.contractAddress.slice(-6);
+                if (cfg.explorerUrl) {
+                    contract.href = cfg.explorerUrl + '/address/' + cfg.contractAddress;
+                    document.getElementById('footContract').href = contract.href;
+                }
+            } else {
+                contract.innerText = '-';
+            }
+        }
+        fetch('api/config').then((r) => (r.ok ? r.json() : null)).then((cfg) => { systemConfig = cfg; renderSystem(); if (cfg && Array.isArray(cfg.staging) && cfg.staging.length) setPosts(cfg.staging.map((p) => [p.name, p.lon, p.lat])); })
+            .catch(() => { systemConfig = null; renderSystem(); });
+
+        // --- 3. Peta pos BPBD di latar hero ---
+        // Titik-titik biru tua adalah pos asal bantuan yang SUNGGUHAN (38 BPBD provinsi, sama dengan
+        // backend/data/bpbd_staging_areas.json; kalau backend jalan, daftarnya diambil dari sana).
+        // Ping merah dan garis rutenya ilustrasi: laporan muncul, lalu pos terdekat bergerak ke sana.
+        let POSTS = [["BPBD Provinsi Aceh",95.3238,5.5483],["BPBD Provinsi Sumatera Utara",98.6756,3.5852],["BPBD Provinsi Sumatera Barat",100.3543,-0.9471],["BPBD Provinsi Riau",101.4478,0.5071],["BPBD Provinsi Jambi",103.6131,-1.6101],["BPBD Provinsi Sumatera Selatan",104.7754,-2.9761],["BPBD Provinsi Bengkulu",102.2608,-3.7928],["BPBD Provinsi Lampung",105.2667,-5.45],["BPBD Kepulauan Bangka Belitung",106.1167,-2.1333],["BPBD Kepulauan Riau",104.45,0.9167],["Pusdalops BPBD Provinsi DKI Jakarta",106.8142,-6.1643],["Pusdalops BPBD Provinsi Jawa Barat",107.6432,-6.9388],["BPBD Provinsi Jawa Tengah",110.4203,-6.9932],["BPBD D.I. Yogyakarta",110.3695,-7.7956],["BPBD Provinsi Jawa Timur",112.7278,-7.3524],["BPBD Provinsi Banten",106.1503,-6.12],["BPBD Provinsi Bali",115.2126,-8.6705],["BPBD Nusa Tenggara Barat",116.1167,-8.5833],["BPBD Nusa Tenggara Timur",123.607,-10.1772],["BPBD Kalimantan Barat",109.3425,-0.0263],["BPBD Kalimantan Tengah",113.9213,-2.2105],["BPBD Kalimantan Selatan",114.5908,-3.3194],["BPBD Kalimantan Timur",117.1536,-0.5022],["BPBD Kalimantan Utara",117.3653,2.8375],["BPBD Sulawesi Utara",124.8428,1.4748],["BPBD Sulawesi Tengah (Palu)",119.8707,-0.8917],["BPBD Sulawesi Selatan (Makassar)",119.4327,-5.1477],["BPBD Sulawesi Tenggara",122.5126,-3.9985],["BPBD Provinsi Gorontalo",123.0568,0.5435],["BPBD Sulawesi Barat (Mamuju)",118.889,-2.677],["BPBD Provinsi Maluku (Ambon)",128.1908,-3.6554],["BPBD Maluku Utara (Sofifi)",127.55,0.73],["BPBD Provinsi Papua (Jayapura)",140.669,-2.5916],["BPBD Papua Barat (Manokwari)",134.062,-0.8615],["BPBD Papua Selatan (Merauke)",140.4011,-8.4991],["BPBD Papua Tengah (Nabire)",135.4833,-3.3667],["BPBD Papua Pegunungan (Wamena)",138.9442,-4.0981],["BPBD Papua Barat Daya (Sorong)",131.2558,-0.8762]];   // [nama, bujur, lintang]
+        const BOX = { w: 94.5, e: 141.5, s: -11.5, n: 6.5 };   // batas Indonesia dalam derajat
+        const canvas = document.getElementById('map-canvas');
+        const ctx = canvas.getContext('2d');
+        const heroSection = document.getElementById('home');
+        const postTip = document.getElementById('post-tip');
+        const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+        let width = 0, height = 0, mapW = 0, pts = [], sosEvents = [], lastSpawn = 0, lastFrame = 0, heroVisible = true, running = false;
+        let textRects = [], lastRects = 0;
+
+        // Kotak-kotak tempat teks hero berada. Pos yang jatuh tepat di belakang tulisan digambar samar,
+        // supaya judul dan paragraf tetap enak dibaca.
+        function measureText() {
+            const base = canvas.getBoundingClientRect();
+            textRects = [...heroSection.querySelectorAll('h1 > span, p[data-i18n], a, .parallax-el.inline-flex, .font-display.font-semibold')].map((el) => {
+                const r = el.getBoundingClientRect();
+                return { left: r.left - base.left - 7, right: r.right - base.left + 7, top: r.top - base.top - 7, bottom: r.bottom - base.top + 7 };
+            });
+        }
+
+        // Tracking mouse untuk efek Canvas
+        let mouse = { x: -1000, y: -1000 };
+        let targetMouse = { x: -1000, y: -1000 };
+
+        window.addEventListener('mousemove', (e) => {
+            const rect = canvas.getBoundingClientRect();
+            targetMouse.x = e.clientX - rect.left;
+            targetMouse.y = e.clientY - rect.top;
+        });
+
+        function renderLegend() {
+            document.getElementById('legendPosts').innerText = POSTS.length + ' ' + i18n[currentLang].legend_posts;
+        }
+        function setPosts(list) {
+            POSTS = list;
+            renderLegend();
+            initCanvas();
+        }
+
+        function initCanvas() {
+            const dpr = Math.min(window.devicePixelRatio || 1, 2);
+            width = heroSection.offsetWidth;
+            height = heroSection.offsetHeight;
+            canvas.width = Math.round(width * dpr);
+            canvas.height = Math.round(height * dpr);
+            ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+
+            // peta Indonesia dipaskan ke lebar hero, sedikit di bawah tengah supaya tidak tertutup menu
+            const ratio = (BOX.e - BOX.w) / (BOX.n - BOX.s);
+            mapW = Math.min(width * 0.94, 1360, Math.max(240, (height - 170) * ratio));
+            const mapH = mapW / ratio;
+            const ox = (width - mapW) / 2, oy = 80 + (height - 80 - mapH) / 2;
+            pts = POSTS.map(([name, lon, lat]) => ({
+                name,
+                x: ox + ((lon - BOX.w) / (BOX.e - BOX.w)) * mapW,
+                y: oy + ((BOX.n - lat) / (BOX.n - BOX.s)) * mapH
+            }));
+            sosEvents = [];
+            measureText();
+            drawFrame(0);
+        }
+
+        function drawGrid() {
+            ctx.strokeStyle = 'rgba(148, 163, 184, 0.10)';
+            ctx.lineWidth = 1;
+            const gridSize = 50;
+            for (let x = 0; x <= width; x += gridSize) {
+                ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, height); ctx.stroke();
+            }
+            for (let y = 0; y <= height; y += gridSize) {
+                ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(width, y); ctx.stroke();
+            }
+        }
+
+        // satu laporan baru: muncul di sekitar sebuah pos, lalu dijemput pos yang paling dekat
+        function spawnReport() {
+            const near = pts[Math.floor(Math.random() * pts.length)];
+            const angle = Math.random() * Math.PI * 2, reach = mapW * (0.016 + Math.random() * 0.03);
+            const x = near.x + Math.cos(angle) * reach, y = near.y + Math.sin(angle) * reach * 0.8;
+            let from = pts[0], best = Infinity;
+            for (const p of pts) { const d = Math.hypot(p.x - x, p.y - y); if (d < best) { best = d; from = p; } }
+            sosEvents.push({ x, y, from, age: 0 });
+        }
+
+        function drawFrame(dt) {
+            ctx.clearRect(0, 0, width, height);
+            drawGrid();
+            const size = Math.max(3.5, Math.min(7, mapW / 180));
+
+            // AI Scanner Effect: garis dari kursor ke pos-pos di sekitarnya
+            let nearest = null, nearestDist = 18;
+            for (const p of pts) {
+                const dist = Math.hypot(mouse.x - p.x, mouse.y - p.y);
+                if (dist < 180) {
+                    ctx.beginPath(); ctx.moveTo(mouse.x, mouse.y); ctx.lineTo(p.x, p.y);
+                    ctx.strokeStyle = `rgba(26, 99, 198, ${0.6 * (1 - dist / 180)})`;
+                    ctx.lineWidth = 1.5; ctx.stroke();
+                }
+                if (dist < nearestDist) { nearestDist = dist; nearest = p; }
+            }
+            // nama pos di dekat kursor
+            if (nearest) {
+                postTip.innerText = nearest.name;
+                postTip.style.left = nearest.x + 'px'; postTip.style.top = nearest.y + 'px';
+                postTip.classList.add('show');
+            } else {
+                postTip.classList.remove('show');
+            }
+
+            for (const ev of sosEvents) {
+                ev.age += dt;
+                const fade = ev.age > 3.8 ? Math.max(0, 1 - (ev.age - 3.8) / 0.7) : 1;
+                const travel = Math.min(1, Math.max(0, (ev.age - 0.9) / 2));
+                const eased = 1 - Math.pow(1 - travel, 3);
+                const arrived = travel >= 1;
+                if (travel > 0) {
+                    const cx = ev.from.x + (ev.x - ev.from.x) * eased, cy = ev.from.y + (ev.y - ev.from.y) * eased;
+                    ctx.beginPath(); ctx.moveTo(ev.from.x, ev.from.y); ctx.lineTo(cx, cy);
+                    ctx.setLineDash([5, 5]); ctx.strokeStyle = `rgba(26, 99, 198, ${0.75 * fade})`; ctx.lineWidth = 2; ctx.stroke(); ctx.setLineDash([]);
+                    if (!arrived) { ctx.beginPath(); ctx.arc(cx, cy, 3.5, 0, Math.PI * 2); ctx.fillStyle = '#065bb8'; ctx.fill(); }
+                }
+                // laporannya: merah selama menunggu, biru setelah pos sampai
+                const ring = (ev.age % 1.3) / 1.3;
+                if (!arrived) {
+                    ctx.beginPath(); ctx.arc(ev.x, ev.y, 4 + ring * 18, 0, Math.PI * 2);
+                    ctx.strokeStyle = `rgba(220, 38, 38, ${(1 - ring) * 0.85})`; ctx.lineWidth = 2; ctx.stroke();
+                }
+                ctx.beginPath(); ctx.arc(ev.x, ev.y, 4, 0, Math.PI * 2);
+                ctx.fillStyle = arrived ? `rgba(6, 91, 184, ${fade})` : '#dc2626'; ctx.fill();
+            }
+            sosEvents = sosEvents.filter((ev) => ev.age < 4.5);
+
+            // pos BPBD: kotak biru tua dengan tepi putih, seperti penanda pos di command center
+            for (const p of pts) {
+                const behindText = p !== nearest && textRects.some((r) => p.x > r.left && p.x < r.right && p.y > r.top && p.y < r.bottom);
+                if (behindText) {
+                    ctx.fillStyle = 'rgba(13, 32, 74, 0.16)';
+                    ctx.fillRect(p.x - size / 2, p.y - size / 2, size, size);
+                    continue;
+                }
+                ctx.fillStyle = 'rgba(255, 255, 255, 0.95)';
+                ctx.fillRect(p.x - size / 2 - 1.5, p.y - size / 2 - 1.5, size + 3, size + 3);
+                ctx.fillStyle = p === nearest ? '#065bb8' : '#0d204a';
+                ctx.fillRect(p.x - size / 2, p.y - size / 2, size, size);
+            }
+        }
+
+        function animate(now) {
+            if (!running) return;
+            const dt = Math.min(0.05, (now - lastFrame) / 1000 || 0);
+            lastFrame = now;
+            // Smooth interpolation untuk pergerakan mouse di canvas
+            mouse.x += (targetMouse.x - mouse.x) * 0.1;
+            mouse.y += (targetMouse.y - mouse.y) * 0.1;
+            if (now - lastSpawn > 1100 && sosEvents.length < 7 && pts.length) { spawnReport(); lastSpawn = now; }
+            if (now - lastRects > 600) { measureText(); lastRects = now; }   // teks bisa bergeser (parallax, ganti bahasa)
+            drawFrame(dt);
+            requestAnimationFrame(animate);
+        }
+        // animasi berhenti saat hero tidak terlihat atau tab disembunyikan, supaya tidak boros baterai
+        function setRunning(value) {
+            const next = value && !reduceMotion;
+            if (next && !running) { running = true; lastFrame = performance.now(); requestAnimationFrame(animate); }
+            else if (!next) running = false;
+        }
+
+        renderLegend();
+        initCanvas();
+        // tinggi hero baru pasti setelah gaya dan font selesai dimuat: susun ulang setiap kali ukurannya berubah
+        if (window.ResizeObserver) new ResizeObserver(() => { if (heroSection.offsetWidth !== width || heroSection.offsetHeight !== height) initCanvas(); }).observe(heroSection);
+        else window.addEventListener('resize', initCanvas);
+        new IntersectionObserver(([entry]) => { heroVisible = entry.isIntersecting; setRunning(heroVisible && !document.hidden); }).observe(heroSection);
+        document.addEventListener('visibilitychange', () => setRunning(heroVisible && !document.hidden));
+        document.addEventListener('mouseleave', () => { targetMouse.x = targetMouse.y = -1000; });
+
+        // --- 4. Interactive DOM Elements (Glow, Parallax, & 3D Tilt) ---
+        const cursorGlow = document.getElementById('cursor-glow');
+        const tiltCards = document.querySelectorAll('.tilt-card');
+        const parallaxEls = document.querySelectorAll('.parallax-el');
+
+        document.addEventListener('mousemove', (e) => {
+            // 1. Global Cursor Glow
+            if(cursorGlow.style.display === 'none') {
+                cursorGlow.style.display = 'block';
+            }
+            // Menggunakan transform untuk performa tinggi tanpa lag
+            cursorGlow.style.transform = `translate(${e.clientX}px, ${e.clientY}px) translate(-50%, -50%)`;
+
+            // 2. Efek Parallax di Halaman Beranda (Hero)
+            const x = (window.innerWidth / 2 - e.clientX);
+            const y = (window.innerHeight / 2 - e.clientY);
+            
+            parallaxEls.forEach(el => {
+                const speed = el.getAttribute('data-speed') || 0.02;
+                el.style.transform = `translate(${x * speed}px, ${y * speed}px)`;
+            });
+        });
+
+        // 3. 3D Tilt Effect pada Kartu Informasi
+        tiltCards.forEach(card => {
+            card.addEventListener('mouseenter', () => {
+                card.style.transition = 'none'; // Matikan transisi agar mouse follow instan
+                card.style.zIndex = '10'; 
+            });
+
+            card.addEventListener('mousemove', (e) => {
+                const rect = card.getBoundingClientRect();
+                const x = e.clientX - rect.left;
+                const y = e.clientY - rect.top;
+                
+                const centerX = rect.width / 2;
+                const centerY = rect.height / 2;
+                
+                // Kalkulasi rotasi (maksimal 12 derajat)
+                const rotateX = ((y - centerY) / centerY) * -12; 
+                const rotateY = ((x - centerX) / centerX) * 12;
+                
+                card.style.transform = `perspective(1000px) rotateX(${rotateX}deg) rotateY(${rotateY}deg) scale3d(1.03, 1.03, 1.03)`;
+                // Efek bayangan bergerak berlawanan arah mouse
+                card.style.boxShadow = `${(centerX - x) / 5}px ${(centerY - y) / 5}px 30px -10px rgba(6, 91, 184, 0.25)`;
+            });
+            
+            card.addEventListener('mouseleave', () => {
+                card.style.transition = 'all 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275)'; // Efek memantul kembali
+                card.style.transform = `perspective(1000px) rotateX(0deg) rotateY(0deg) scale3d(1, 1, 1)`;
+                card.style.boxShadow = '';
+                card.style.zIndex = '1';
+            });
+        });
+
+        // --- 5. Navbar Sticky Effect ---
+        window.addEventListener('scroll', () => {
+            const nav = document.getElementById('navbar');
+            if (window.scrollY > 20) {
+                nav.classList.add('shadow-sm');
+            } else {
+                nav.classList.remove('shadow-sm');
+            }
+        });
+    </script>
+</body>
+</html>

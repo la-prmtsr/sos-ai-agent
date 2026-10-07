@@ -1,0 +1,526 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Masuk · SOS AI</title>
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🆘</text></svg>">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <style>
+    /* Warna sama dengan command center: ungu = semua yang menyangkut wallet dan blockchain. */
+    :root {
+      --bg: #0b1020; --surface: #121a2b; --raised: #18223a; --line: #24304a; --line-2: #33425f;
+      --text: #e9eef7; --muted: #8e9bb5; --dim: #5d6a85; --chain: #9b8cff; --chain-soft: rgba(155, 140, 255, 0.14);
+      --merah: #ef5350;
+      --ui: "Space Grotesk", "Segoe UI", system-ui, sans-serif;
+      --mono: "JetBrains Mono", ui-monospace, Consolas, monospace;
+    }
+    * { box-sizing: border-box; }
+    [hidden] { display: none !important; }
+    body { margin: 0; min-height: 100vh; background: var(--bg); color: var(--text); font: 400 15px/1.55 var(--ui); overflow-x: hidden; }
+    h1, h2, h3, p, ol, ul { margin: 0; padding: 0; }
+    ol, ul { list-style: none; }
+    a { color: var(--chain); }
+    button, input, select { font: inherit; color: inherit; }
+    :focus-visible { outline: 2px solid var(--chain); outline-offset: 2px; }
+
+    /* latar: garis lintang-bujur seperti di peta, memudar ke tepi */
+    body::before {
+      content: ""; position: fixed; inset: 0; z-index: -1; pointer-events: none;
+      background-image: linear-gradient(var(--line) 1px, transparent 1px), linear-gradient(90deg, var(--line) 1px, transparent 1px);
+      background-size: 64px 64px; opacity: 0.45;
+      -webkit-mask-image: radial-gradient(ellipse 70% 60% at 30% 45%, #000 20%, transparent 75%);
+              mask-image: radial-gradient(ellipse 70% 60% at 30% 45%, #000 20%, transparent 75%);
+    }
+
+    .wrap { width: min(1120px, calc(100% - 40px)); margin: 0 auto; }
+    .nav { display: flex; align-items: center; justify-content: space-between; padding: 18px 0; }
+    .brand { display: flex; align-items: center; gap: 10px; font-weight: 700; font-size: 18px; text-decoration: none; color: var(--text); }
+    .mark { font: 700 12px/1 var(--ui); letter-spacing: 0.06em; background: var(--merah); color: #fff; padding: 6px 7px; border-radius: 6px; }
+    .nav a.back { color: var(--muted); text-decoration: none; font-size: 14.5px; }
+    .nav a.back:hover { color: var(--text); }
+
+    .auth { display: grid; grid-template-columns: minmax(0, 1.05fr) minmax(0, 0.95fr); gap: 56px; align-items: center; padding: 28px 0 56px; min-height: calc(100vh - 140px); }
+
+    /* ------------------------------------------------ kartu operator */
+    .scene { perspective: 1100px; display: grid; justify-items: center; gap: 22px; }
+    .id-card {
+      --rx: 0deg; --ry: 0deg; --mx: 50%; --my: 0%;
+      position: relative; width: min(460px, 100%); aspect-ratio: 1.586; padding: 22px 24px; border-radius: 20px; overflow: hidden;
+      background: linear-gradient(145deg, #1b2644 0%, #131b30 55%, #1a1840 100%);
+      border: 1px solid var(--line-2);
+      box-shadow: 0 30px 80px rgba(0, 0, 0, 0.55), 0 0 0 1px rgba(155, 140, 255, 0.08), 0 0 90px rgba(155, 140, 255, 0.12);
+      transform: rotateX(var(--rx)) rotateY(var(--ry)); transition: transform 0.18s ease-out, border-color 0.4s, box-shadow 0.4s;
+      display: grid; grid-template-rows: auto 1fr auto auto; gap: 10px;
+    }
+    .id-card[data-state="verified"] { border-color: rgba(155, 140, 255, 0.75); box-shadow: 0 30px 80px rgba(0, 0, 0, 0.55), 0 0 0 1px rgba(155, 140, 255, 0.35), 0 0 120px rgba(155, 140, 255, 0.28); }
+    .sheen { position: absolute; inset: 0; pointer-events: none; background: radial-gradient(circle at var(--mx) var(--my), rgba(155, 140, 255, 0.28), transparent 46%); mix-blend-mode: screen; }
+    .c-top { display: flex; align-items: center; gap: 9px; font-weight: 700; }
+    .c-net { margin-left: auto; font-size: 12px; font-weight: 500; color: var(--muted); padding: 4px 10px; border: 1px solid var(--line-2); border-radius: 999px; }
+    .c-body { display: flex; align-items: center; gap: 16px; min-width: 0; }
+    .c-icon { width: 72px; height: 72px; flex: none; border-radius: 14px; border: 1px dashed var(--line-2); background: rgba(11, 16, 32, 0.5); image-rendering: pixelated; }
+    .id-card:not([data-state="idle"]) .c-icon { border-style: solid; }
+    .c-label { font-size: 12.5px; color: var(--muted); }
+    .c-name { font-size: clamp(19px, 2.6vw, 25px); font-weight: 600; line-height: 1.15; overflow-wrap: anywhere; }
+    .c-agency { font-size: 13.5px; color: var(--muted); overflow-wrap: anywhere; }
+    .c-rows { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+    .c-k { display: block; font-size: 11.5px; color: var(--dim); }
+    .c-v { font-size: 13.5px; }
+    .mono { font-family: var(--mono); font-size: 12.5px; }
+    .c-sig { min-height: 34px; }
+    .c-sig .mono { color: var(--chain); word-break: break-all; }
+    .stamp {
+      position: absolute; right: 20px; bottom: 50px; padding: 6px 12px; border: 2px solid var(--chain); border-radius: 8px;
+      color: var(--chain); font-weight: 700; font-size: 13px; letter-spacing: 0.04em; transform: rotate(-9deg) scale(1); opacity: 0;
+      background: rgba(11, 16, 32, 0.55);
+    }
+    .stamp.show { opacity: 1; animation: stamp 0.34s cubic-bezier(0.2, 1.4, 0.4, 1); }
+    .stamp.neutral { border-color: var(--muted); color: var(--muted); }
+    @keyframes stamp { from { opacity: 0; transform: rotate(-9deg) scale(1.9); } to { opacity: 1; transform: rotate(-9deg) scale(1); } }
+    .scene-note { color: var(--muted); font-size: 14px; text-align: center; max-width: 46ch; }
+
+    /* -------------------------------------------------------- panel */
+    .panel { background: var(--surface); border: 1px solid var(--line); border-radius: 18px; padding: 26px; }
+    .seg { position: relative; display: grid; grid-template-columns: 1fr 1fr; padding: 4px; background: var(--bg); border: 1px solid var(--line); border-radius: 12px; margin-bottom: 22px; }
+    .seg::before { content: ""; position: absolute; top: 4px; bottom: 4px; left: 4px; width: calc(50% - 4px); border-radius: 9px; background: var(--raised); transition: transform 0.22s ease; }
+    .seg[data-mode="register"]::before { transform: translateX(100%); }
+    .seg button { position: relative; border: 0; background: transparent; padding: 10px; border-radius: 9px; cursor: pointer; font-weight: 600; color: var(--muted); }
+    .seg button[aria-selected="true"] { color: var(--text); }
+    .panel h1 { font-size: 26px; font-weight: 600; line-height: 1.2; }
+    .lead { color: var(--muted); margin-top: 6px; }
+
+    .fields { display: grid; gap: 12px; margin-top: 18px; }
+    .field label { display: block; font-size: 13.5px; font-weight: 500; margin-bottom: 5px; }
+    .field input, .field select { width: 100%; padding: 11px 12px; border-radius: 10px; border: 1px solid var(--line-2); background: var(--bg); }
+    .field input::placeholder { color: var(--dim); }
+    .field input:focus, .field select:focus { outline: none; border-color: var(--chain); box-shadow: 0 0 0 3px var(--chain-soft); }
+    .field .opt { font-weight: 400; color: var(--dim); }
+
+    .steps { display: grid; gap: 2px; margin: 20px 0 18px; }
+    .steps li { display: grid; grid-template-columns: 22px minmax(0, 1fr); gap: 12px; align-items: center; padding: 7px 0; color: var(--dim); transition: color 0.2s; }
+    .steps li::before { content: ""; width: 18px; height: 18px; border-radius: 50%; border: 2px solid var(--line-2); justify-self: center; }
+    .steps li[data-state="doing"] { color: var(--text); }
+    .steps li[data-state="doing"]::before { border-color: var(--chain-soft); border-top-color: var(--chain); animation: spin 0.8s linear infinite; }
+    .steps li[data-state="done"] { color: var(--text); }
+    .steps li[data-state="done"]::before { border-color: var(--chain); background: var(--chain) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath d='M4 8.5l2.6 2.6L12 5.6' fill='none' stroke='%230b1020' stroke-width='2.2' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E") center / 14px no-repeat; }
+    .steps li[data-state="fail"] { color: var(--merah); }
+    .steps li[data-state="fail"]::before { border-color: var(--merah); }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    .btn { display: inline-flex; align-items: center; justify-content: center; gap: 8px; font-weight: 600; padding: 13px 18px; border-radius: 11px; border: 1px solid var(--line-2); background: transparent; cursor: pointer; text-decoration: none; color: var(--text); }
+    .btn:disabled { opacity: 0.55; cursor: wait; }
+    .btn-primary { width: 100%; background: var(--chain); border-color: var(--chain); color: #0b1020; font-size: 16px; }
+    .btn-primary:hover:not(:disabled) { background: #b1a5ff; }
+    .btn-ghost:hover { border-color: var(--muted); }
+    .btn-small { padding: 8px 12px; font-size: 13.5px; border-radius: 9px; }
+
+    .msg { margin-top: 12px; font-size: 14px; color: var(--merah); min-height: 1.2em; }
+    .result { margin-top: 6px; padding: 16px; border-radius: 12px; background: var(--bg); border: 1px solid var(--line-2); display: grid; gap: 12px; }
+    .result p { color: var(--muted); }
+    .result strong { color: var(--text); }
+    .result .row { display: flex; gap: 8px; flex-wrap: wrap; }
+    .result .row .btn { flex: 1 1 auto; }
+    .addr-box { display: flex; align-items: center; gap: 8px; padding: 9px 12px; border: 1px dashed var(--line-2); border-radius: 9px; }
+    .addr-box .mono { flex: 1; word-break: break-all; }
+    .alt { display: block; text-align: center; margin-top: 16px; color: var(--muted); font-size: 14px; }
+
+    /* ------------------------------------------- kelola akses (pemilik) */
+    .admin { margin: 0 0 64px; padding: 26px; background: var(--surface); border: 1px solid var(--line); border-radius: 18px; }
+    .admin h2 { font-size: 22px; font-weight: 600; }
+    .admin .lead { max-width: 70ch; }
+    .req-list { display: grid; gap: 10px; margin-top: 18px; }
+    .req { display: grid; grid-template-columns: 44px minmax(0, 1fr) auto; gap: 14px; align-items: center; padding: 12px 14px; background: var(--bg); border: 1px solid var(--line); border-radius: 12px; }
+    .req canvas { width: 44px; height: 44px; border-radius: 10px; image-rendering: pixelated; }
+    .req-name { font-weight: 600; }
+    .req-meta { font-size: 13.5px; color: var(--muted); overflow-wrap: anywhere; }
+    .req.active { border-color: rgba(155, 140, 255, 0.5); }
+    .add-row { display: flex; gap: 8px; margin-top: 16px; flex-wrap: wrap; }
+    .add-row input { flex: 1 1 280px; padding: 10px 12px; border-radius: 10px; border: 1px solid var(--line-2); background: var(--bg); font-family: var(--mono); font-size: 13px; }
+    .admin-msg { margin-top: 10px; font-size: 14px; color: var(--muted); min-height: 1.2em; }
+
+    @media (max-width: 900px) {
+      .auth { grid-template-columns: minmax(0, 1fr); gap: 28px; min-height: 0; }
+      .req { grid-template-columns: 44px minmax(0, 1fr); }
+      .req .btn { grid-column: 1 / -1; }
+    }
+    @media (prefers-reduced-motion: reduce) {
+      .id-card { transition: none; transform: none !important; }
+      .stamp.show { animation: none; }
+      .seg::before { transition: none; }
+      .steps li[data-state="doing"]::before { animation-duration: 2.4s; }
+    }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <header class="nav">
+      <a class="brand" href="/"><span class="mark" aria-hidden="true" data-logo>SOS</span>SOS AI</a>
+      <a class="back" href="/">Kembali ke beranda</a>
+    </header>
+
+    <main class="auth">
+      <section class="scene" id="scene" aria-label="Kartu operator">
+        <article class="id-card" id="card" data-state="idle">
+          <div class="sheen" aria-hidden="true"></div>
+          <div class="c-top"><span class="mark" aria-hidden="true" data-logo="sm">SOS</span>SOS AI<span class="c-net" id="cNet">Jaringan</span></div>
+          <div class="c-body">
+            <canvas class="c-icon" id="cIcon" width="5" height="5" aria-hidden="true"></canvas>
+            <div style="min-width:0">
+              <p class="c-label">Kartu operator</p>
+              <h2 class="c-name" id="cName">Nama operator</h2>
+              <p class="c-agency" id="cAgency">Instansi dan wilayah kerja</p>
+            </div>
+          </div>
+          <div class="c-rows">
+            <div><span class="c-k">Wallet</span><span class="c-v mono" id="cAddr">belum terhubung</span></div>
+            <div><span class="c-k">Status</span><span class="c-v" id="cRole">Belum masuk</span></div>
+          </div>
+          <div class="c-sig"><span class="c-k">Tanda tangan wallet</span><span class="mono" id="cSig">belum ada</span></div>
+          <div class="stamp" id="cStamp" aria-hidden="true">Operator</div>
+        </article>
+        <p class="scene-note">Kartu ini terisi dari wallet kamu dan dari smart contract. Tidak ada kata sandi yang disimpan.</p>
+      </section>
+
+      <section class="panel" aria-label="Masuk atau daftar">
+        <div class="seg" id="seg" role="tablist" data-mode="login">
+          <button type="button" role="tab" id="tabLogin" aria-selected="true">Masuk</button>
+          <button type="button" role="tab" id="tabRegister" aria-selected="false">Daftar</button>
+        </div>
+
+        <h1 id="title">Masuk dengan wallet</h1>
+        <p class="lead" id="lead">Untuk petugas BNPB dan BPBD. Wallet kamu adalah identitasmu, dan izin operator dibaca langsung dari smart contract.</p>
+
+        <form class="fields" id="fields" hidden novalidate>
+          <div class="field"><label for="fName">Nama lengkap</label><input id="fName" maxlength="80" autocomplete="name" placeholder="Nama sesuai surat tugas"></div>
+          <div class="field"><label for="fAgency">Instansi</label>
+            <select id="fAgency"><option>BNPB Pusat</option><option>BPBD Provinsi</option><option selected>BPBD Kabupaten/Kota</option><option>Lainnya</option></select></div>
+          <div class="field"><label for="fUnit">Wilayah atau unit kerja</label><input id="fUnit" maxlength="80" placeholder="Contoh: Pusdalops Kab. Cianjur"></div>
+          <div class="field"><label for="fContact">Email dinas <span class="opt">(opsional)</span></label><input id="fContact" type="email" maxlength="80" autocomplete="email" placeholder="nama@instansi.go.id"></div>
+        </form>
+
+        <ol class="steps" id="steps" aria-label="Langkah"></ol>
+        <button class="btn btn-primary" id="goBtn" type="button">Hubungkan MetaMask</button>
+        <p class="msg" id="msg" role="alert"></p>
+        <div class="result" id="result" hidden></div>
+        <a class="alt" id="guest" href="/app">Masuk sebagai pengamat, hanya melihat</a>
+      </section>
+    </main>
+
+    <section class="admin" id="admin" hidden aria-label="Kelola akses operator">
+      <h2>Kelola akses operator</h2>
+      <p class="lead">Kamu pemilik contract. Menyetujui permintaan berarti mengirim transaksi <span class="mono">setOperator</span> dari wallet kamu, jadi siapa yang memberi akses kepada siapa ikut tercatat di blockchain.</p>
+      <div class="req-list" id="reqList"></div>
+      <div class="add-row">
+        <input id="addAddr" placeholder="0x... alamat wallet yang belum mendaftar" aria-label="Alamat wallet">
+        <button class="btn btn-small" id="addBtn" type="button">Jadikan operator</button>
+      </div>
+      <p class="admin-msg" id="adminMsg" role="status"></p>
+    </section>
+  </div>
+
+  <script src="vendor/ethers.umd.min.js"></script>
+  <script src="logo.js?v=11"></script>
+  <script>
+  "use strict";
+  /* Masuk dan daftar operator SOS AI dengan wallet.
+     Urutannya: hubungkan wallet -> jaringan yang benar -> tanda tangani pesan (gratis) -> backend
+     mencocokkan tanda tangan dan membaca peran dari smart contract. */
+  const $ = (id) => document.getElementById(id);
+  const SESSION_KEY = "sos.session";
+  const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+  const state = { cfg: null, mode: "login", busy: false, address: null, signature: null, session: null };
+
+  const STEPS = {
+    login: ["Hubungkan wallet", "Pindah ke jaringan", "Tanda tangani pesan masuk", "Cek izin di smart contract"],
+    register: ["Hubungkan wallet", "Pindah ke jaringan", "Tanda tangani permintaan", "Kirim permintaan akses"],
+  };
+  const ROLE_TEXT = { owner: "Pemilik contract", operator: "Operator", pending: "Menunggu persetujuan", unregistered: "Belum terdaftar" };
+
+  function esc(v) { return String(v ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c])); }
+  function short(a, h = 6, t = 4) { return a ? `${a.slice(0, h)}…${a.slice(-t)}` : ""; }
+
+  async function api(path, options = {}) {
+    const res = await fetch(path, options);
+    if (!res.ok) {
+      let detail = res.statusText;
+      try { detail = (await res.json()).detail || detail; } catch (_) { /* bukan JSON */ }
+      const err = new Error(typeof detail === "string" ? detail : "Permintaan ditolak"); err.status = res.status; throw err;
+    }
+    return res.json();
+  }
+  const post = (path, body, headers = {}) => api(path, { method: "POST", headers: { "Content-Type": "application/json", ...headers }, body: JSON.stringify(body) });
+
+  // ------------------------------------------------------------ sesi
+  function readSession() {
+    try { const s = JSON.parse(localStorage.getItem(SESSION_KEY) || "null"); return s && s.exp > Date.now() ? s : null; } catch (_) { return null; }
+  }
+  function writeSession(s) { try { localStorage.setItem(SESSION_KEY, JSON.stringify(s)); } catch (_) { /* penyimpanan browser tidak tersedia */ } }
+  function clearSession() { try { localStorage.removeItem(SESSION_KEY); } catch (_) { /* abaikan */ } }
+
+  // ------------------------------------------------- gambar dari alamat
+  /* Pola 5x5 simetris yang selalu sama untuk alamat yang sama, seperti sidik jari wallet. */
+  function drawIdenticon(canvas, address) {
+    const ctx = canvas.getContext("2d");
+    canvas.width = 5; canvas.height = 5;
+    ctx.clearRect(0, 0, 5, 5);
+    if (!address) return;
+    const hex = address.toLowerCase().replace("0x", "");
+    const hue = parseInt(hex.slice(0, 4), 16) % 360;
+    ctx.fillStyle = `hsl(${hue}, 32%, 18%)`; ctx.fillRect(0, 0, 5, 5);
+    for (let y = 0; y < 5; y++) for (let x = 0; x < 3; x++) {
+      const v = parseInt(hex[4 + y * 3 + x], 16);
+      if (v < 7) continue;
+      ctx.fillStyle = `hsl(${(hue + (v > 11 ? 40 : 0)) % 360}, 78%, ${v > 11 ? 74 : 66}%)`;
+      ctx.fillRect(x, y, 1, 1); ctx.fillRect(4 - x, y, 1, 1);
+    }
+  }
+
+  // ------------------------------------------------------- kartu operator
+  function typeInto(el, text) {
+    if (reduceMotion) { el.textContent = text; return; }
+    let i = 0; el.textContent = "";
+    const timer = setInterval(() => { i += 3; el.textContent = text.slice(0, i); if (i >= text.length) clearInterval(timer); }, 16);
+  }
+
+  function renderCard() {
+    const s = state.session;
+    const profile = (s && s.profile) || null;
+    const name = state.mode === "register" ? $("fName").value.trim() : "";
+    const unit = state.mode === "register" ? $("fUnit").value.trim() : "";
+    $("cName").textContent = name || (profile && profile.name) || "Nama operator";
+    $("cAgency").textContent = state.mode === "register"
+      ? [$("fAgency").value, unit].filter(Boolean).join(", ")
+      : profile ? `${profile.agency}, ${profile.unit}` : "Instansi dan wilayah kerja";
+    const address = state.address || (s && s.address) || null;
+    $("cAddr").textContent = address ? short(address, 8, 6) : "belum terhubung";
+    drawIdenticon($("cIcon"), address);
+    const role = s && s.address === address ? s.role : null;
+    $("cRole").textContent = role ? ROLE_TEXT[role] || role : address ? "Wallet terhubung" : "Belum masuk";
+    const card = $("card"); const stamp = $("cStamp");
+    card.dataset.state = role === "owner" || role === "operator" ? "verified" : address ? "connected" : "idle";
+    stamp.className = "stamp";
+    // saat cap muncul, cap itulah yang menunjukkan status (teksnya disembunyikan supaya tidak bertumpuk)
+    $("cRole").style.visibility = role === "owner" || role === "operator" || role === "pending" ? "hidden" : "visible";
+    if (role === "owner" || role === "operator") { stamp.textContent = role === "owner" ? "Pemilik contract" : "Operator"; stamp.classList.add("show"); }
+    else if (role === "pending") { stamp.textContent = "Menunggu persetujuan"; stamp.classList.add("show", "neutral"); }
+  }
+
+  // kartu miring mengikuti kursor
+  (function tilt() {
+    const scene = $("scene"), card = $("card");
+    if (reduceMotion || !window.matchMedia("(hover: hover)").matches) return;
+    scene.addEventListener("pointermove", (e) => {
+      const r = card.getBoundingClientRect();
+      const x = (e.clientX - r.left) / r.width, y = (e.clientY - r.top) / r.height;
+      card.style.setProperty("--ry", `${(Math.min(1.3, Math.max(-0.3, x)) - 0.5) * 14}deg`);
+      card.style.setProperty("--rx", `${(0.5 - Math.min(1.3, Math.max(-0.3, y))) * 12}deg`);
+      card.style.setProperty("--mx", `${x * 100}%`); card.style.setProperty("--my", `${y * 100}%`);
+    });
+    scene.addEventListener("pointerleave", () => { card.style.setProperty("--rx", "0deg"); card.style.setProperty("--ry", "0deg"); });
+  })();
+
+  // ------------------------------------------------------------ langkah
+  function renderSteps() {
+    const chain = state.cfg ? state.cfg.chainName : "jaringan";
+    $("steps").innerHTML = STEPS[state.mode].map((t, i) => `<li data-state="todo">${esc(i === 1 ? `Pindah ke ${chain}` : t)}</li>`).join("");
+  }
+  function step(i, s) { const li = $("steps").children[i]; if (li) li.dataset.state = s; }
+
+  function setMode(mode) {
+    if (state.busy) return;
+    state.mode = mode;
+    $("seg").dataset.mode = mode;
+    $("tabLogin").setAttribute("aria-selected", String(mode === "login"));
+    $("tabRegister").setAttribute("aria-selected", String(mode === "register"));
+    $("fields").hidden = mode !== "register";
+    $("title").textContent = mode === "login" ? "Masuk dengan wallet" : "Ajukan akses operator";
+    $("lead").textContent = mode === "login"
+      ? "Untuk petugas BNPB dan BPBD. Wallet kamu adalah identitasmu, dan izin operator dibaca langsung dari smart contract."
+      : "Isi data dinasmu, lalu tanda tangani dengan wallet. Pemilik contract menyetujui permintaan ini lewat transaksi on-chain.";
+    $("goBtn").textContent = mode === "login" ? "Hubungkan MetaMask" : "Tanda tangani dan kirim permintaan";
+    $("msg").textContent = ""; $("result").hidden = true; $("goBtn").hidden = false;
+    $("guest").hidden = !!(state.session && state.session.address);
+    renderSteps(); renderCard();
+  }
+
+  // -------------------------------------------------------------- wallet
+  async function ensureChain() {
+    const cfg = state.cfg, hexId = "0x" + cfg.chainId.toString(16);
+    const current = await window.ethereum.request({ method: "eth_chainId" });
+    if (String(current).toLowerCase() === hexId) return;
+    try {
+      await window.ethereum.request({ method: "wallet_switchEthereumChain", params: [{ chainId: hexId }] });
+    } catch (e) {
+      const code = e.code || (e.data && e.data.originalError && e.data.originalError.code);
+      if (code !== 4902) throw e;
+      const symbol = cfg.chainId === 97 || cfg.chainId === 56 ? "tBNB" : "ETH";
+      const params = { chainId: hexId, chainName: cfg.chainName, rpcUrls: [cfg.rpcUrl], nativeCurrency: { name: symbol, symbol, decimals: 18 } };
+      if (cfg.explorerUrl) params.blockExplorerUrls = [cfg.explorerUrl];
+      try { await window.ethereum.request({ method: "wallet_addEthereumChain", params: [params] }); }
+      catch (addError) {
+        if (addError.code === 4001) throw addError;
+        throw new Error(`Tambahkan jaringan ini secara manual di wallet: RPC ${cfg.rpcUrl}, Chain ID ${cfg.chainId}.`);
+      }
+    }
+  }
+
+  function explain(e) {
+    if (!e) return "Terjadi kesalahan.";
+    if (e.code === 4001 || e.code === "ACTION_REJECTED") return "Dibatalkan di wallet. Tidak ada yang berubah.";
+    if (e.code === -32002) return "Wallet masih menunggu jawaban dari permintaan sebelumnya. Buka MetaMask dan selesaikan dulu.";
+    return e.shortMessage || e.message || String(e);
+  }
+
+  async function run() {
+    if (state.busy) return;
+    const mode = state.mode;
+    let fields = {};
+    if (mode === "register") {
+      fields = { name: $("fName").value.trim(), agency: $("fAgency").value, unit: $("fUnit").value.trim(), contact: $("fContact").value.trim() };
+      if (fields.name.length < 3) { $("msg").textContent = "Isi nama lengkap dulu."; $("fName").focus(); return; }
+      if (fields.unit.length < 2) { $("msg").textContent = "Isi wilayah atau unit kerja dulu."; $("fUnit").focus(); return; }
+    }
+    state.busy = true; $("goBtn").disabled = true; $("msg").textContent = ""; $("result").hidden = true;
+    renderSteps();
+    let at = 0;
+    try {
+      step(0, "doing"); $("goBtn").textContent = "Menunggu wallet…";
+      if (!window.ethereum) throw new Error("MetaMask tidak ditemukan di browser ini. Pasang dari metamask.io, lalu muat ulang halaman.");
+      const accounts = await window.ethereum.request({ method: "eth_requestAccounts" });
+      state.address = ethers.getAddress(accounts[0]); state.signature = null; $("cSig").textContent = "belum ada";
+      renderCard(); step(0, "done");
+
+      at = 1; step(1, "doing"); await ensureChain(); step(1, "done");
+
+      at = 2; step(2, "doing"); $("goBtn").textContent = "Tanda tangani di wallet…";
+      const challenge = await post("/api/auth/challenge", { address: state.address, purpose: mode, ...fields });
+      const signer = await new ethers.BrowserProvider(window.ethereum).getSigner(state.address);
+      const signature = await signer.signMessage(challenge.message);
+      state.signature = signature; typeInto($("cSig"), `${signature.slice(0, 30)}…${signature.slice(-10)}`);
+      step(2, "done");
+
+      at = 3; step(3, "doing"); $("goBtn").textContent = mode === "login" ? "Membaca smart contract…" : "Mengirim permintaan…";
+      const res = await post(`/api/auth/${mode}`, { address: state.address, signature });
+      step(3, "done");
+      state.session = { token: res.token, address: res.address, role: res.role, profile: res.profile, exp: Date.now() + res.expires_in * 1000 };
+      writeSession(state.session);
+      renderCard(); showResult();
+    } catch (e) {
+      step(at, "fail"); $("msg").textContent = explain(e);
+    } finally {
+      state.busy = false; $("goBtn").disabled = false;
+      $("goBtn").textContent = state.mode === "login" ? "Hubungkan MetaMask" : "Tanda tangani dan kirim permintaan";
+    }
+  }
+
+  function showResult() {
+    const s = state.session; if (!s) return;
+    const box = $("result"); let html;
+    const open = `<a class="btn btn-primary" href="/app">Buka command center</a>`;
+    if (s.role === "owner") {
+      html = `<p><strong>Kamu masuk sebagai pemilik contract.</strong> Kamu bisa memutuskan laporan dan mengatur siapa yang menjadi operator.</p>
+        <div class="row">${open}</div><div class="row"><button type="button" class="btn" id="toAdmin">Kelola akses operator</button><button type="button" class="btn" id="outBtn">Keluar</button></div>`;
+    } else if (s.role === "operator") {
+      html = `<p><strong>Kamu masuk sebagai operator.</strong> Contract mengenali wallet ini, jadi kamu bisa menyetujui atau menolak laporan.</p>
+        <div class="row">${open}</div><div class="row"><button type="button" class="btn" id="outBtn">Keluar</button></div>`;
+    } else if (s.role === "pending") {
+      html = `<p><strong>Permintaan aksesmu tercatat.</strong> Wallet ini belum menjadi operator. Kirim alamat di bawah ke pemilik contract supaya disetujui.</p>
+        <div class="addr-box"><span class="mono">${esc(s.address)}</span><button type="button" class="btn btn-small" id="copyBtn">Salin</button></div>
+        <div class="row"><a class="btn" href="/app">Lihat command center sebagai pengamat</a></div>`;
+    } else {
+      html = `<p><strong>Wallet ini belum terdaftar.</strong> Ajukan akses dulu, atau lihat command center sebagai pengamat.</p>
+        <div class="row"><button type="button" class="btn" id="toRegister">Ajukan akses operator</button><a class="btn" href="/app">Masuk sebagai pengamat</a></div>`;
+    }
+    box.innerHTML = html; box.hidden = false;
+    $("guest").hidden = true; $("goBtn").hidden = true; // satu tombol utama saja: yang ada di kotak hasil
+    const bind = (id, fn) => { const el = $(id); if (el) el.addEventListener("click", fn); };
+    bind("toAdmin", () => { openAdmin(); });
+    bind("toRegister", () => setMode("register"));
+    bind("outBtn", logout);
+    bind("copyBtn", async () => { try { await navigator.clipboard.writeText(s.address); $("copyBtn").textContent = "Tersalin"; } catch (_) { $("copyBtn").textContent = "Salin manual"; } });
+    if (s.role === "owner") openAdmin(false);
+  }
+
+  function logout() {
+    clearSession(); state.session = null; state.address = null; state.signature = null;
+    $("cSig").textContent = "belum ada"; $("result").hidden = true; $("guest").hidden = false; $("admin").hidden = true; $("goBtn").hidden = false;
+    renderSteps(); renderCard();
+  }
+
+  // ------------------------------------------- kelola akses (pemilik contract)
+  async function openAdmin(scroll = true) {
+    $("admin").hidden = false;
+    await loadRequests();
+    if (scroll) $("admin").scrollIntoView({ behavior: reduceMotion ? "auto" : "smooth", block: "start" });
+  }
+
+  async function loadRequests() {
+    const list = $("reqList");
+    try {
+      const rows = await api("/api/auth/requests", { headers: { Authorization: `Bearer ${state.session.token}` } });
+      if (!rows.length) { list.innerHTML = `<p class="lead">Belum ada permintaan akses. Minta petugas membuka halaman ini dan memilih Daftar.</p>`; return; }
+      list.innerHTML = rows.map((r) => `<div class="req ${r.is_operator ? "active" : ""}">
+          <canvas data-icon="${esc(r.address)}" width="5" height="5" aria-hidden="true"></canvas>
+          <div><div class="req-name">${esc(r.name)}</div>
+            <div class="req-meta">${esc(r.agency)}, ${esc(r.unit)}${r.contact ? `, ${esc(r.contact)}` : ""}<br><span class="mono">${esc(ethers.getAddress(r.address))}</span></div></div>
+          <button type="button" class="btn btn-small" data-set="${esc(r.address)}" data-allow="${r.is_operator ? "0" : "1"}">${r.is_operator ? "Cabut akses" : "Jadikan operator"}</button>
+        </div>`).join("");
+      list.querySelectorAll("canvas[data-icon]").forEach((c) => drawIdenticon(c, c.dataset.icon));
+    } catch (e) {
+      list.innerHTML = ""; $("adminMsg").textContent = e.status === 401 ? "Sesi berakhir. Masuk lagi dengan wallet." : explain(e);
+    }
+  }
+
+  async function setOperator(address, allow) {
+    const msg = $("adminMsg");
+    try {
+      if (!ethers.isAddress(address)) { msg.textContent = "Alamat wallet tidak valid."; return; }
+      msg.textContent = "Menunggu tanda tangan di wallet…";
+      await ensureChain();
+      const signer = await new ethers.BrowserProvider(window.ethereum).getSigner(state.session.address);
+      const contract = new ethers.Contract(state.cfg.contractAddress, state.cfg.abi, signer);
+      const tx = await contract.setOperator(ethers.getAddress(address), allow);
+      msg.textContent = `Transaksi ${short(tx.hash, 10, 6)} terkirim, menunggu masuk blok…`;
+      await tx.wait();
+      const link = state.cfg.explorerUrl ? ` <a href="${esc(state.cfg.explorerUrl)}/tx/${esc(tx.hash)}" target="_blank" rel="noopener">Lihat transaksi</a>` : "";
+      msg.innerHTML = `${allow ? "Akses operator diberikan" : "Akses operator dicabut"} untuk ${esc(short(address, 8, 6))}.${link}`;
+      $("addAddr").value = "";
+      await loadRequests();
+    } catch (e) {
+      const revert = e.revert && e.revert.name;
+      msg.textContent = revert === "NotOwner" ? "Wallet ini bukan pemilik contract." : explain(e);
+    }
+  }
+
+  // ---------------------------------------------------------------- mulai
+  async function init() {
+    $("tabLogin").addEventListener("click", () => setMode("login"));
+    $("tabRegister").addEventListener("click", () => setMode("register"));
+    $("goBtn").addEventListener("click", run);
+    ["fName", "fUnit", "fAgency"].forEach((id) => $(id).addEventListener("input", renderCard));
+    $("fields").addEventListener("submit", (e) => { e.preventDefault(); run(); });
+    $("guest").addEventListener("click", () => writeSession({ role: "guest", exp: Date.now() + 12 * 3600 * 1000 }));
+    $("reqList").addEventListener("click", (e) => { const b = e.target.closest("[data-set]"); if (b) setOperator(b.dataset.set, b.dataset.allow === "1"); });
+    $("addBtn").addEventListener("click", () => setOperator($("addAddr").value.trim(), true));
+    renderSteps();
+
+    try { state.cfg = await api("/api/config"); }
+    catch (_) { $("msg").textContent = "Backend tidak bisa dihubungi. Pastikan uvicorn sedang jalan."; $("goBtn").disabled = true; return; }
+    $("cNet").textContent = state.cfg.chainEnabled ? state.cfg.chainName : "Tanpa chain";
+    if (!state.cfg.chainEnabled) {
+      $("lead").textContent = "Backend berjalan tanpa blockchain, jadi masuk dengan wallet belum aktif. Kamu tetap bisa membuka command center.";
+      $("seg").hidden = true; $("steps").hidden = true; $("goBtn").hidden = true;
+      $("guest").textContent = "Buka command center"; $("guest").className = "btn btn-primary";
+      return;
+    }
+    const saved = readSession();
+    if (saved && saved.address) { state.session = saved; state.address = saved.address; }
+    setMode(location.hash === "#daftar" && !state.session ? "register" : "login");
+    if (state.session) showResult();
+  }
+  init();
+  </script>
+</body>
+</html>

@@ -1,0 +1,12 @@
+# Tabel acuan penduduk untuk cek sensus oleh Agent 2.
+# Satu baris = satu wilayah (dusun / desa / kelurahan). Agent mencari wilayah TERDEKAT
+# dari koordinat laporan, dalam radius CENSUS_MAX_KM (default 1 km).
+# Baris di sini MENGALAHKAN estimasi WorldPop, jadi pakai untuk wilayah yang angkanya kamu yakin.
+#
+# Tabel ini opsional. Kalau diisi, pakai ANGKA ASLI. Sumber yang bisa dipakai: publikasi BPS
+# "Kecamatan Dalam Angka" (jumlah penduduk per desa), atau monografi/profil desa
+# untuk tingkat dusun. Tulis sumbernya di kolom terakhir: teks itu tampil di dashboard.
+#
+# Contoh bentuk baris (hapus tanda # dan ganti dengan data asli):
+# Dusun Contoh,Kab. Bogor,-6.7123,106.8451,92,nama sumber datanya dan tahunnya
+wilayah,kabupaten,lat,lon,penduduk,sumber

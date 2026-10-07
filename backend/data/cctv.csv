@@ -1,0 +1,15 @@
+# Daftar kamera CCTV yang boleh dipakai Agent 2.
+# Agent mencari kamera TERDEKAT dari koordinat laporan dalam radius CCTV_MAX_KM
+# (default 5 km), mengambil satu gambar dari snapshot_url, lalu meminta model vision
+# menilai apakah gambar itu menunjukkan bencana.
+#
+# Syarat supaya tingkat CCTV aktif:
+#   1. ada minimal satu baris kamera di file ini,
+#   2. snapshot_url mengembalikan GAMBAR diam (jpg/png), bukan halaman web atau video stream,
+#   3. di backend/.env: LLM_API_KEY, LLM_BASE_URL, LLM_MODEL diisi model yang bisa membaca
+#      gambar, dan LLM_VISION=true.
+# Kalau salah satu tidak terpenuhi, agent mencatat "CCTV tidak tersedia" dan lanjut ke
+# sensor publik (gempa USGS, curah hujan).
+#
+# Pakai hanya kamera publik yang memang boleh diakses.
+nama,lat,lon,snapshot_url,sumber

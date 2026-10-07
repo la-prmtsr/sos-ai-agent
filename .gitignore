@@ -1,0 +1,16 @@
+# rahasia: jangan pernah di-commit
+.env
+
+# data lokal (berisi nomor HP pelapor)
+backend/sos.db
+backend/data/cache_*.json
+
+# hasil install / build
+node_modules/
+.venv/
+__pycache__/
+dist/
+build/
+contracts/artifacts/
+contracts/cache/
+contracts/deployments/

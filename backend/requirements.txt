@@ -1,0 +1,8 @@
+# Versi di bawah ini sudah dites bersama. Butuh Python 3.11 - 3.13.
+fastapi==0.142.2
+uvicorn[standard]==0.54.0
+aiogram==3.31.0
+langgraph==1.2.12
+web3==8.0.0
+httpx==0.28.1
+python-dotenv==1.2.4
