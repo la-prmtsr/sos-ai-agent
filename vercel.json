@@ -1,0 +1,10 @@
+{
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "framework": null,
+  "buildCommand": "rm -rf public && cp -r dashboard public && mv public/index.html public/app.html && mv public/landing.html public/index.html",
+  "outputDirectory": "public",
+  "cleanUrls": true,
+  "rewrites": [
+    { "source": "/api/:path*", "destination": "https://sos-ai-agent.onrender.com/api/:path*" }
+  ]
+}
